@@ -341,9 +341,14 @@
     const center = live && !half && st.period
       ? `<div class="qtr">${esc(qtr(st.period))}</div><div class="clock">${esc(st.clock || '')}</div>`
       : `<div class="clock">${esc(st.detail || '')}</div>`;
-    const dd = st.downShort
-      ? `<div class="ddrow"><span class="down">${esc(st.downShort)}</span>${st.ballOn ? `<span class="spot">Ball on <b>${esc(st.ballOn)}</b></span>` : ''}${st.redZone ? '<span class="rzpill">🚨 RED ZONE</span>' : ''}</div>`
-      : live ? '<div class="ddrow"><span class="spot muted">Between plays</span></div>' : '';
+    // Keep the last known down & distance on screen through timeouts and reviews.
+    if (st.downShort) S.lastDD = { id: st.id, down: st.downShort, ballOn: st.ballOn };
+    const keep = !st.downShort && live && S.lastDD && S.lastDD.id === st.id ? S.lastDD : null;
+    const downTxt = st.downShort || (keep && keep.down);
+    const spotTxt = st.downShort ? st.ballOn : keep ? keep.ballOn : st.ballOn;
+    const dd = downTxt
+      ? `<div class="ddrow"><span class="down">${esc(downTxt)}</span>${spotTxt ? `<span class="spot">Ball on <b>${esc(spotTxt)}</b></span>` : ''}${st.redZone ? '<span class="rzpill">🚨 RED ZONE</span>' : ''}</div>`
+      : live ? '<div class="ddrow"><span class="spot muted">Kickoff / change of possession</span></div>' : '';
     const qShort = (n) => (n == null ? '' : n <= 4 ? 'Q' + n : 'OT');
     const recent = (st.recent && st.recent.length ? st.recent : st.lastPlay ? [{ text: st.lastPlay }] : []).slice(0, 5);
     let ticker = '';

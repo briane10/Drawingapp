@@ -275,9 +275,16 @@
         status.downShort = lastSnap.endDown || '';
         status.ballOn = lastSnap.endBallOn || '';
       }
-      if (!status.lastPlay) {
-        const lastAny = plays.filter((p) => p.text).pop();
-        if (lastAny) status.lastPlay = lastAny.text;
+      if (!status.downShort && lastSnap && !curDone && lastSnap.endDown) {
+        // During timeouts / reviews the scoreboard drops the down: keep showing the last known one.
+        status.downShort = lastSnap.endDown;
+        if (!status.ballOn) status.ballOn = lastSnap.endBallOn || '';
+        if (status.togo == null) status.togo = lastSnap.togo;
+      }
+      const isBreak = (t) => /timeout|two-minute|end period|end of|coin toss/i.test(t || '');
+      if (!status.lastPlay || isBreak(status.lastPlayType) || /^(official )?timeout/i.test(status.lastPlay)) {
+        const lastReal = plays.filter((p) => p.text && !isBreak(p.typeText)).pop();
+        if (lastReal) status.lastPlay = lastReal.text;
       }
       // The last 5 plays for the play list (newest first). Skip timeouts and quarter breaks.
       const shown = plays.filter((p) => p.text && !/timeout|two-minute|end period|end of|coin toss/i.test(p.typeText));
