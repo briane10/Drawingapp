@@ -213,6 +213,55 @@
   }
   setInterval(() => { if (!document.hidden) hostTick(false); }, 1000);
 
+  // ---------- every device keeps its own scoreboard fresh ----------
+  // Scoring still comes from the host, but the score, clock, down, ball spot and recent plays are read
+  // straight from ESPN on each phone, so the board stays live even if the host's phone falls asleep.
+  let cSb = 0;
+  let cSum = 0;
+  let cBusy = false;
+  let cSummary = null;
+  let cSummaryId = null;
+  let cEv = null;
+  async function clientTick() {
+    const room = S.room;
+    if (!room || !room.event_id || S.view !== 'game' || document.hidden || cBusy || isHost()) return;
+    const now = Date.now();
+    const live = !room.status || room.status.state !== 'post';
+    if (now - cSb < (live ? 5000 : 60000)) return;
+    cBusy = true;
+    cSb = now;
+    try {
+      const ev = await ESPN.getScoreboardEvent(room.league, room.event_id);
+      if (ev) cEv = ev;
+      if (cSummaryId !== room.event_id || now - cSum > 20000) {
+        cSum = now;
+        cSummary = await ESPN.getSummary(room.league, room.event_id);
+        cSummaryId = room.event_id;
+      }
+      if (cEv && String(cEv.id) === String(room.event_id)) {
+        const feed = ESPN.readFeed(cSummaryId === room.event_id ? cSummary : {}, cEv, room.league);
+        const prev = S.local && JSON.stringify(S.local.status);
+        S.local = { eventId: room.event_id, status: feed.status, at: Date.now() };
+        if (prev !== JSON.stringify(feed.status)) scheduleRender();
+      }
+    } catch (e) { /* keep showing what we have */ } finally { cBusy = false; }
+  }
+  setInterval(clientTick, 1000);
+  function liveStatus() {
+    const r = S.room;
+    if (!r) return null;
+    if (S.local && S.local.eventId === r.event_id && Date.now() - S.local.at < 30000 && S.local.status) return S.local.status;
+    return r.status;
+  }
+  function hostAway() {
+    const r = S.room;
+    if (!r || isHost() || !r.event_id || !r.auto || !r.host_key || !S.local || S.local.eventId !== r.event_id) return false;
+    const mine = S.local.status;
+    if (!mine || mine.state !== 'in' || !r.status) return false;
+    const behind = mine.clock !== r.status.clock || mine.period !== r.status.period || mine.lastPlay !== r.status.lastPlay;
+    return behind && Date.now() - Date.parse(r.updated_at || 0) > 90000;
+  }
+
   let wake = null;
   async function keepAwake() {
     try { if ('wakeLock' in navigator && !wake) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch (e) { /* not allowed yet */ }
@@ -329,7 +378,7 @@
   }
 
   function scorebug() {
-    const st = S.room.status;
+    const st = liveStatus();
     if (!st) {
       return `<div class="bug empty">${S.room.event_id ? 'Loading the scoreboard…' : (isHost() ? '<button class="btn small" data-act="games">📺 Pick the game you’re watching</button>' : 'Waiting for the host to pick a game…')}</div>`;
     }
@@ -347,7 +396,7 @@
     const downTxt = st.downShort || (keep && keep.down);
     const spotTxt = st.downShort ? st.ballOn : keep ? keep.ballOn : st.ballOn;
     const dd = downTxt
-      ? `<div class="ddrow"><span class="down">${esc(downTxt)}</span>${spotTxt ? `<span class="spot">Ball on <b>${esc(spotTxt)}</b></span>` : ''}${st.redZone ? '<span class="rzpill">🚨 RED ZONE</span>' : ''}</div>`
+      ? `<div class="ddrow"><span class="down">${esc(downTxt)}</span>${spotTxt ? `<span class="spot">Ball on <b>${esc(spotTxt)}</b></span>` : ''}${st.los != null && st.possHome != null && (st.possHome ? 100 - st.los : st.los) <= 20 && (st.possHome ? 100 - st.los : st.los) > 0 ? '<span class="rzpill">🚨 RED ZONE</span>' : ''}</div>`
       : live ? '<div class="ddrow"><span class="spot muted">Kickoff / change of possession</span></div>' : '';
     const qShort = (n) => (n == null ? '' : n <= 4 ? 'Q' + n : 'OT');
     const recent = (st.recent && st.recent.length ? st.recent : st.lastPlay ? [{ text: st.lastPlay }] : []).slice(0, 5);
@@ -366,7 +415,9 @@
         ${open ? `<div class="recent"><ol>${recent.map((p, i) => `
           <li class="${i === 0 ? 'newest' : ''}"><span class="rc-meta">${esc([qShort(p.q), p.clock].filter(Boolean).join(' '))}${p.dd ? `<small>${esc(p.dd)}</small>` : ''}</span><span class="rc-text">${esc(p.text)}</span></li>`).join('')}</ol></div>` : ''}`;
     }
-    return `<div class="bug ${st.redZone ? 'rz' : ''}">
+    const yte = st.los != null && st.possHome != null ? (st.possHome ? 100 - st.los : st.los) : null;
+    const inRz = !!downTxt && yte != null && yte > 0 && yte <= 20;
+    return `<div class="bug ${inRz ? 'rz' : ''}">
         <div class="bugrow">${team(st.away, 'away')}<div class="mid">${center}</div>${team(st.home, 'home')}</div>
         ${dd}${ticker}
       </div>`;
@@ -374,7 +425,7 @@
 
   /** Heading for the pick board: who has the ball, the down and yards to go (falls back to "Play #N"). */
   function situationHead(round) {
-    const st = S.room.status;
+    const st = liveStatus();
     const live = st && st.state === 'in';
     const keep = st && !st.downShort && live && S.lastDD && S.lastDD.id === st.id ? S.lastDD : null;
     const down = st && (st.downShort || (keep && keep.down));
@@ -529,6 +580,8 @@
       </header>
       ${onlineDot}
       ${store.kind === 'local' ? '<div class="banner warn small">🧪 Test mode: only tabs on this device share this game.</div>' : ''}
+      ${hostAway() ? `<div class="banner warn">😴 The host’s device stopped updating, so new plays won’t be scored.
+        Ask the host to open the game, or <button class="link" data-act="takehost">make this device the host</button>.</div>` : ''}
       ${scorebug()}
       <div id="fieldSlotNarrow" class="fieldslot"></div>
       <div class="layout">
@@ -549,7 +602,7 @@
       ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>tap at the snap · play #${r.round}</small></button></div>` : ''}`;
     document.body.classList.toggle('has-lockbar', isHost());
     const slot = document.getElementById(wideMQ.matches ? 'fieldSlotWide' : 'fieldSlotNarrow');
-    if (slot) { slot.appendChild(field.el); field.update(r.status); }
+    if (slot) { slot.appendChild(field.el); field.update(liveStatus()); }
   }
 
   // ---------- modals ----------
@@ -771,7 +824,7 @@
       case 'fix': showResultEntry(el.dataset.kind, parseInt(el.dataset.round, 10)); break;
       case 'entry': S.entry[el.dataset.f] = el.dataset.v; if (el.dataset.f === 'play_type' && el.dataset.v === 'void') { S.entry.dir = null; S.entry.dist = null; } renderEntry(); break;
       case 'entrysave': saveEntry(); break;
-      case 'rzopen': hostDo(() => patchRoom({ rz_phase: 'open', rz_round: (S.room.rz_round || 0) + 1, rz_drive: null, rz_label: (S.room.status && S.room.status.poss ? S.room.status.poss + ' in the red zone' : 'Red zone') })); break;
+      case 'rzopen': hostDo(() => patchRoom({ rz_phase: 'open', rz_round: (S.room.rz_round || 0) + 1, rz_drive: null, rz_label: (liveStatus() && liveStatus().poss ? liveStatus().poss + ' in the red zone' : 'Red zone') })); break;
       case 'rzlock': hostDo(() => patchRoom({ rz_phase: 'locked' })); break;
       case 'rzend':
         hostDo(async () => {
