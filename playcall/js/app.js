@@ -444,7 +444,19 @@
           <button class="btn primary big">${me ? 'Save' : 'Join the game'}</button>
         </form>
         <p class="muted small">Everyone in this game can see your name, so a nickname is perfect.</p>
-      </section>`;
+      </section>
+      ${reclaimCard(me)}`;
+  }
+
+  /** Lets someone who's already in the game (other browser, Home Screen app, cleared data) become themselves again. */
+  function reclaimCard(me) {
+    const others = playersList().filter((p) => !me || p.id !== me.id);
+    if (!others.length) return '';
+    return `<section class="card">
+      <h2>${me ? 'Not you?' : 'Already in this game?'}</h2>
+      <p class="small muted">Tap your name to pick up where you left off, with your points and picks.</p>
+      <div class="reclaim">${others.map((p) => `<button class="btn" data-act="reclaim" data-id="${p.id}">${esc(p.avatar)} ${esc(p.name)}</button>`).join('')}</div>
+    </section>`;
   }
 
   function scorebug() {
@@ -1054,6 +1066,20 @@
       case 'lock': lockNow(); break;
       case 'share': share(); break;
       case 'rules': showRules(); break;
+      case 'reclaim': {
+        const p = S.players[el.dataset.id];
+        if (!p || !confirm('Continue as ' + p.name + '?')) break;
+        S.me = p.id;
+        session.players = session.players || {};
+        session.players[S.code] = p.id;
+        session.name = p.name;
+        session.avatar = p.avatar;
+        saveSession();
+        S.view = 'game';
+        render();
+        toast('Welcome back, ' + esc(p.name) + '!', 'good');
+        break;
+      }
       case 'earlynext': S.earlyNext = S.room.round; render(); break;
       case 'tvsync': showTvSync(); break;
       case 'tvsyncnow': {
