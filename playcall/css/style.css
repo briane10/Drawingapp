@@ -305,3 +305,7 @@ b.big { font-size: 1.6rem; color: var(--accent); letter-spacing: .14em; }
 .sithead h2 { display: flex; align-items: center; gap: 8px; font-size: 1.25rem; }
 .sithead h2 img { width: 28px; height: 28px; object-fit: contain; }
 .sitdown { color: var(--accent); }
+.rz-line { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 10px; text-align: left; color: var(--text); padding: 12px 16px; animation: none; }
+.rz-line:disabled { opacity: 1; }
+.rz-state { flex: none; font-size: .85rem; font-weight: 800; color: #ffb3b3; }
+.rz-submit { margin-top: 12px; }

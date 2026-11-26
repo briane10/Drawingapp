@@ -33,6 +33,8 @@
     results: {},
     draft: {}, // my in-progress pick per round, for instant feedback
     rzDraft: {},
+    rzSel: {},
+    rzEdit: null,
     games: null,
     gamesLeague: 'nfl',
     gamesDay: 0,
@@ -467,14 +469,24 @@
   function rzCard() {
     const r = S.room;
     if (r.rz_phase === 'none') return '';
-    const saved = myPick('drive', r.rz_round) || {};
-    const d = Object.assign({}, saved, S.rzDraft[r.rz_round] || {});
+    const round = r.rz_round;
+    const saved = myPick('drive', round);
     const open = r.rz_phase === 'open';
-    const btn = (v, label) => `<button class="choice ${d.drive === v ? 'on' : ''}" ${open ? '' : 'disabled'} data-act="rzpick" data-v="${v}">${label}</button>`;
+    const label = { td: '🙌 Touchdown', fg: '🥅 Field goal', none: '🚫 No points' };
+    // Collapsed once you've submitted (or once it's locked): one line with your call.
+    if ((saved && saved.drive && S.rzEdit !== round) || !open) {
+      const yours = saved && saved.drive ? `Your call: <b>${label[saved.drive]}</b>` : 'You didn’t make a call';
+      return `<button class="card redzone rz-line" data-act="${open ? 'rzedit' : ''}" ${open ? '' : 'disabled'}>
+        <span>🚨 <b>Red zone</b> · ${yours}</span>
+        <span class="rz-state">${open ? 'Change ✎' : '🔒 Locked'}</span></button>`;
+    }
+    const sel = S.rzSel[round] || (saved && saved.drive) || null;
+    const btn = (v, txt) => `<button class="choice ${sel === v ? 'on' : ''}" data-act="rzsel" data-v="${v}">${txt}</button>`;
     return `<section class="card redzone">
       <div class="board-head"><h2>🚨 Red zone!</h2><span class="hint">${esc(r.rz_label || '')}</span></div>
-      <p class="small">How does this drive end? <b>${POINTS.drive} pts</b>${open ? ' · locks at the next snap' : ' · 🔒 locked'}</p>
+      <p class="small">How does this drive end? <b>${POINTS.drive} pts</b> · locks at the next snap</p>
       <div class="grid3">${btn('td', '🙌 TD')}${btn('fg', '🥅 FG')}${btn('none', '🚫 Nothing')}</div>
+      <button class="btn primary big rz-submit" data-act="rzsubmit" ${sel ? '' : 'disabled'}>${S.rzSaving ? 'Saving…' : 'Submit my call'}</button>
     </section>`;
   }
 
@@ -774,19 +786,24 @@
     }
     render();
   }
-  async function setRzPick(val) {
-    if (!S.me) return;
+  async function submitRz() {
+    if (!S.me) { S.view = 'profile'; render(); return; }
     const round = S.room.rz_round;
-    S.rzDraft[round] = { drive: val };
-    buzz(15);
+    const val = S.rzSel[round];
+    if (!val) return;
+    S.rzSaving = true;
     render();
     try {
       await store.upsertPick({ room: S.code, player: S.me, kind: 'drive', round, drive: val });
       S.picks[[S.me, 'drive', round].join('|')] = { room: S.code, player: S.me, kind: 'drive', round, drive: val };
+      S.rzEdit = null;
+      delete S.rzSel[round];
+      buzz(30);
     } catch (e) {
-      toast(e.code === '42501' || /row-level security/i.test(e.message) ? '🔒 Red zone call is locked.' : '⚠️ ' + esc(e.message), 'bad');
+      toast(e.code === '42501' || /row-level security/i.test(e.message) ? '🔒 Too late, the red zone call is locked.' : '⚠️ ' + esc(e.message), 'bad');
+      refresh();
     }
-    delete S.rzDraft[round];
+    S.rzSaving = false;
     render();
   }
 
@@ -805,7 +822,9 @@
       case 'avatar': S.pendingAvatar = el.dataset.v; document.querySelectorAll('.av').forEach((b) => b.classList.toggle('on', b === el)); break;
       case 'profile': S.view = 'profile'; S.pendingAvatar = null; render(); break;
       case 'pick': setPick(el.dataset.f, el.dataset.v); break;
-      case 'rzpick': setRzPick(el.dataset.v); break;
+      case 'rzsel': S.rzSel[S.room.rz_round] = el.dataset.v; buzz(15); render(); break;
+      case 'rzsubmit': submitRz(); break;
+      case 'rzedit': S.rzEdit = S.room.rz_round; render(); break;
       case 'lock': lockNow(); break;
       case 'share': share(); break;
       case 'rules': showRules(); break;
