@@ -313,3 +313,29 @@ b.big { font-size: 1.6rem; color: var(--accent); letter-spacing: .14em; }
 .rz-wrap .rz-line { margin-bottom: 6px; }
 .rz-host { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, .2); }
 .rz-wrap .rz-host { margin-top: 0; border-top: none; padding: 0 4px; }
+
+/* main tabs + squares */
+.maintabs { margin: 0 0 14px; }
+.badge { font-size: .8rem; }
+.sq-grid { display: grid; grid-template-columns: 30px repeat(10, 1fr); gap: 2px; }
+.sq-corner { display: flex; flex-direction: column; justify-content: center; font-size: .5rem; font-weight: 800; color: var(--muted); line-height: 1.2; overflow: hidden; }
+.sq-h { display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--accent); background: #050d08; border-radius: 5px; min-height: 24px; font-size: .95rem; }
+.sq { aspect-ratio: 1; min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 1rem; line-height: 1; position: relative; overflow: hidden; color: var(--muted); }
+.sq small { font-size: .45rem; font-weight: 700; max-width: 100%; overflow: hidden; white-space: nowrap; color: var(--muted); margin-top: 1px; }
+.sq.free { color: rgba(255, 255, 255, .25); }
+.sq.taken { background: #1b3b27; }
+.sq.mine { background: #3a320c; border-color: var(--accent); }
+.sq.mine small { color: #fff; }
+.sq.won { background: #144d2a; border-color: var(--good); box-shadow: 0 0 10px rgba(61, 220, 132, .5); }
+.sq-trophy { position: absolute; top: 0; right: 1px; font-size: .55rem; }
+@media (min-width: 600px) { .sq small { font-size: .6rem; } .sq { font-size: 1.3rem; } .sq-corner { font-size: .65rem; } }
+.sq-mine { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.sq-mine .chip.on { color: var(--text); border-color: var(--accent); }
+.sq-mine b { color: var(--accent); }
+.sq-owners { margin: 10px 0 0; }
+.sq-periods { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.sq-periods li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.sq-periods li:first-child { border-top: none; }
+.sq-score { grid-column: 1; font-size: .85rem; color: var(--muted); }
+.sq-win { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-weight: 800; }
+.sq-host { margin-top: 12px; }

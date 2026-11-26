@@ -46,13 +46,15 @@
   function key(kind, round) { return kind + ':' + round; }
 
   /** Leaderboard rows sorted by total, plus per-player history. */
-  function leaderboard(players, picks, results) {
+  function leaderboard(players, picks, results, bonus) {
     const resByKey = {};
     results.forEach((r) => { resByKey[key(r.kind, r.round)] = r; });
     const latest = results.filter((r) => r.kind === 'play' && !r.void).sort((a, b) => b.round - a.round)[0];
     const rows = players.map((p) => ({ player: p, total: 0, correct: 0, played: 0, last: null, streak: 0 }));
     const byId = {};
     rows.forEach((r) => { byId[r.player.id] = r; });
+    // Squares wins and other bonuses: [{ player, points }]
+    (bonus || []).forEach((b) => { const row = byId[b.player]; if (row) { row.total += b.points; row.trophies = (row.trophies || 0) + 1; } });
     const sorted = picks.slice().sort((a, b) => a.round - b.round);
     sorted.forEach((pk) => {
       const row = byId[pk.player];

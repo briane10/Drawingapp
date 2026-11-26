@@ -57,6 +57,7 @@
         score: t.score != null ? String(t.score) : '',
         color: t.team && t.team.color ? '#' + t.team.color : '',
         alt: t.team && t.team.alternateColor ? '#' + t.team.alternateColor : '',
+        lines: (t.linescores || []).map((l) => Math.round(Number(l.value) || 0)), // points per quarter
       };
       teams[t.homeAway] = info;
       byId[info.id] = info;

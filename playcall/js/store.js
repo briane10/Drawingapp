@@ -4,12 +4,13 @@
 (function (root) {
   'use strict';
 
-  const TABLES = ['pc_rooms', 'pc_players', 'pc_picks', 'pc_results'];
+  const TABLES = ['pc_rooms', 'pc_players', 'pc_picks', 'pc_results', 'pc_squares'];
   const PK = {
     pc_rooms: (r) => r.code,
     pc_players: (r) => r.id,
     pc_picks: (r) => [r.room, r.player, r.kind, r.round].join('|'),
     pc_results: (r) => [r.room, r.kind, r.round].join('|'),
+    pc_squares: (r) => [r.room, r.idx].join('|'),
   };
 
   function err(e) {
@@ -52,10 +53,11 @@
         return data;
       },
       async loadAll(code) {
-        const [room, players, picks, results] = await Promise.all([
+        const [room, players, picks, results, squares] = await Promise.all([
           this.getRoom(code), all('pc_players', 'room', code), all('pc_picks', 'room', code), all('pc_results', 'room', code),
+          all('pc_squares', 'room', code).catch(() => []), // older databases may not have squares yet
         ]);
-        return { room, players, picks, results };
+        return { room, players, picks, results, squares };
       },
       async addPlayer(row) {
         const { data, error } = await sb.from('pc_players').insert(row).select().single();
@@ -77,6 +79,14 @@
       async upsertResults(rows) {
         if (!rows.length) return;
         const { error } = await sb.from('pc_results').upsert(rows, { onConflict: 'room,kind,round' });
+        if (error) throw err(error);
+      },
+      async claimSquare(room, idx, player) {
+        const { error } = await sb.from('pc_squares').insert({ room, idx, player });
+        if (error) throw err(error);
+      },
+      async releaseSquare(room, idx, player) {
+        const { error } = await sb.from('pc_squares').delete().eq('room', room).eq('idx', idx).eq('player', player);
         if (error) throw err(error);
       },
       subscribe(code, onChange, onStatus) {
@@ -102,7 +112,7 @@
         const db = JSON.parse(localStorage.getItem(KEY) || 'null');
         if (db) return db;
       } catch (e) { /* ignore */ }
-      return { pc_rooms: {}, pc_players: {}, pc_picks: {}, pc_results: {} };
+      return { pc_rooms: {}, pc_players: {}, pc_picks: {}, pc_results: {}, pc_squares: {} };
     }
     function write(db) { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { /* ignore */ } }
     function emit(ev) {
@@ -112,6 +122,7 @@
     if (bc) bc.onmessage = (m) => listeners.forEach((fn) => fn(m.data));
     function put(table, row, type) {
       const db = read();
+      db[table] = db[table] || {};
       const k = PK[table](row);
       const existed = !!db[table][k];
       db[table][k] = Object.assign({}, db[table][k] || {}, row);
@@ -141,7 +152,8 @@
       async loadAll(code) {
         const db = read();
         const by = (t) => Object.values(db[t]).filter((r) => r.room === code);
-        return { room: db.pc_rooms[code] || null, players: by('pc_players'), picks: by('pc_picks'), results: by('pc_results') };
+        db.pc_squares = db.pc_squares || {};
+        return { room: db.pc_rooms[code] || null, players: by('pc_players'), picks: by('pc_picks'), results: by('pc_results'), squares: by('pc_squares') };
       },
       async addPlayer(row) { return put('pc_players', Object.assign({ id: uuid(), created_at: new Date().toISOString() }, row), 'INSERT'); },
       async updatePlayer(id, patch) { put('pc_players', Object.assign({}, patch, { id })); },
@@ -162,6 +174,24 @@
         put('pc_picks', Object.assign({}, row, { updated_at: new Date().toISOString() }));
       },
       async upsertResults(rows) { rows.forEach((r) => put('pc_results', Object.assign({ void: false, source: 'auto' }, r))); },
+      async claimSquare(room, idx, player) {
+        const db = read();
+        db.pc_squares = db.pc_squares || {};
+        const r = db.pc_rooms[room];
+        if (!r || (r.sq_phase || 'open') !== 'open') throw Object.assign(new Error('new row violates row-level security policy'), { code: '42501' });
+        if (db.pc_squares[room + '|' + idx]) throw Object.assign(new Error('duplicate key value'), { code: '23505' });
+        put('pc_squares', { room, idx, player, created_at: new Date().toISOString() }, 'INSERT');
+      },
+      async releaseSquare(room, idx, player) {
+        const db = read();
+        const k = room + '|' + idx;
+        const r = db.pc_rooms[room];
+        if (!db.pc_squares || !db.pc_squares[k] || db.pc_squares[k].player !== player || (r && (r.sq_phase || 'open') !== 'open')) return;
+        const old = db.pc_squares[k];
+        delete db.pc_squares[k];
+        write(db);
+        emit({ table: 'pc_squares', type: 'DELETE', row: null, old });
+      },
       subscribe(code, onChange, onStatus) {
         const fn = (ev) => {
           const r = ev.row || ev.old || {};

@@ -34,6 +34,7 @@
     draft: {}, // my in-progress pick per round, for instant feedback
     rzDraft: {},
     rzSel: {},
+    squares: {},
     rzEdit: null,
     games: null,
     gamesLeague: 'nfl',
@@ -74,6 +75,9 @@
     data.picks.forEach((p) => { S.picks[pickKey(p)] = p; });
     S.results = {};
     data.results.forEach((r) => { S.results[resKey(r)] = r; S.seenResults.add(resKey(r) + JSON.stringify([r.play_type, r.dir, r.dist, r.drive, r.void])); });
+    S.squares = {};
+    (data.squares || []).forEach((q) => { S.squares[q.idx] = q; });
+    S.sqWinsSeen = ((data.room && data.room.sq_wins) || []).length;
   }
   function applyChange(ev) {
     const { table, type, row, old } = ev;
@@ -90,7 +94,10 @@
       if (type === 'DELETE') { if (old) delete S.picks[pickKey(old)]; } else if (row) S.picks[pickKey(row)] = row;
     } else if (table === 'pc_results') {
       if (row) { S.results[resKey(row)] = row; announceResult(row); }
+    } else if (table === 'pc_squares') {
+      if (type === 'DELETE') { if (old && S.squares[old.idx] && (!old.player || S.squares[old.idx].player === old.player)) delete S.squares[old.idx]; } else if (row) S.squares[row.idx] = row;
     }
+    if (table === 'pc_rooms') announceSquares();
     scheduleRender();
   }
   let renderTimer = null;
@@ -203,6 +210,12 @@
             room: S.code, kind: x.kind, round: x.round, void: !!x.void, play_type: x.play_type || null, dir: x.dir || null,
             dist: x.dist || null, yards: x.yards == null ? null : x.yards, drive: x.drive || null, text: (x.text || '').slice(0, 600), source: 'auto', anim: x.anim || null,
           })));
+        }
+        if (r.sq_cols && r.sq_rows && feed.status) {
+          const owners = {};
+          Object.values(S.squares).forEach((q) => { owners[q.idx] = q.player; });
+          const wins = Squares.newWins(r, feed.status, owners);
+          if (wins.length) patch.sq_wins = (r.sq_wins || []).concat(wins);
         }
         if (Object.keys(patch).length) await patchRoom(patch);
       });
@@ -441,7 +454,7 @@
   function pickBoard() {
     const r = S.room;
     if (r.status && r.status.state === 'post' && !(r.pending || []).length && r.rz_phase === 'none') {
-      const rows = leaderboard(playersList(), Object.values(S.picks), Object.values(S.results));
+      const rows = leaderboard(playersList(), Object.values(S.picks), Object.values(S.results), squareBonus());
       const w = rows[0];
       return `<section class="card board final"><h2>🏁 Final</h2>
         ${w ? `<p class="winner">${esc(w.player.avatar)} <b>${esc(w.player.name)}</b> wins with <b>${w.total}</b> points!</p>` : ''}
@@ -518,7 +531,7 @@
   }
 
   function board() {
-    const rows = leaderboard(playersList(), Object.values(S.picks), Object.values(S.results));
+    const rows = leaderboard(playersList(), Object.values(S.picks), Object.values(S.results), squareBonus());
     const r = S.room;
     const lockedRound = (r.pending || []).length ? r.pending[r.pending.length - 1].r : null;
     return `<section class="card lb">
@@ -583,8 +596,112 @@
     </section>`;
   }
 
+  // ---------- squares mini-game ----------
+  function squareBonus() {
+    return ((S.room && S.room.sq_wins) || []).filter((w) => w.player).map((w) => ({ player: w.player, points: Squares.pointsFor(w.q) }));
+  }
+  function myWinsBadge() {
+    const n = ((S.room && S.room.sq_wins) || []).filter((w) => w.player && w.player === S.me).length;
+    return n ? ` <span class="badge">🏆${n > 1 ? n : ''}</span>` : '';
+  }
+  function announceSquares() {
+    const wins = (S.room && S.room.sq_wins) || [];
+    if (S.sqWinsSeen == null) { S.sqWinsSeen = wins.length; return; }
+    if (wins.length <= S.sqWinsSeen) { S.sqWinsSeen = wins.length; return; }
+    wins.slice(S.sqWinsSeen).forEach((w) => {
+      const per = Squares.PERIODS.find((p) => p.q === w.q);
+      const p = w.player && S.players[w.player];
+      const st = liveStatus() || {};
+      const score = `${(st.away && st.away.abbr) || 'Away'} ${w.away} – ${(st.home && st.home.abbr) || 'Home'} ${w.home}`;
+      if (p && w.player === S.me) { toast(`🏆 <b>You won ${per.name} squares!</b> +${per.points}<br><small>${esc(score)}</small>`, 'good', 7000); buzz(80); }
+      else toast(`🔢 ${per.name} squares: ${p ? esc(p.avatar + ' ' + p.name) + ' wins +' + per.points : 'empty square, no winner'}<br><small>${esc(score)}</small>`, p ? '' : 'muted', 6000);
+    });
+    S.sqWinsSeen = wins.length;
+  }
+
+  function squaresView() {
+    const r = S.room;
+    const st = liveStatus() || {};
+    const away = (st.away && st.away.abbr) || 'AWAY';
+    const home = (st.home && st.home.abbr) || 'HOME';
+    const drawn = !!(r.sq_cols && r.sq_rows);
+    const open = (r.sq_phase || 'open') === 'open' && !drawn;
+    const wins = r.sq_wins || [];
+    const winBy = {};
+    wins.forEach((w) => { if (w.idx != null) (winBy[w.idx] = winBy[w.idx] || []).push(Squares.PERIODS.find((p) => p.q === w.q).name); });
+    const taken = Object.keys(S.squares).length;
+    const mine = Object.values(S.squares).filter((q) => q.player === S.me).map((q) => q.idx).sort((a, b) => a - b);
+    let cells = `<div class="sq-corner"><span>${esc(away)} →</span><span>${esc(home)} ↓</span></div>`;
+    for (let c = 0; c < 10; c++) cells += `<div class="sq-h">${drawn ? r.sq_cols[c] : '?'}</div>`;
+    for (let row = 0; row < 10; row++) {
+      cells += `<div class="sq-h">${drawn ? r.sq_rows[row] : '?'}</div>`;
+      for (let c = 0; c < 10; c++) {
+        const i = row * 10 + c;
+        const q = S.squares[i];
+        const p = q && S.players[q.player];
+        const w = winBy[i];
+        const cls = ['sq', q ? 'taken' : 'free', q && q.player === S.me ? 'mine' : '', w ? 'won' : ''].join(' ');
+        const label = p ? `${esc(p.avatar)}<small>${esc(p.name.slice(0, 5))}</small>` : q ? '<small>?</small>' : open ? '+' : '';
+        cells += `<button class="${cls}" data-act="sq" data-i="${i}" ${open ? '' : 'tabindex="-1"'} title="${drawn ? esc(away + ' ' + r.sq_cols[c] + ' · ' + home + ' ' + r.sq_rows[row]) : ''}">${w ? '<span class="sq-trophy">🏆</span>' : ''}${label}</button>`;
+      }
+    }
+    const counts = {};
+    Object.values(S.squares).forEach((q) => { counts[q.player] = (counts[q.player] || 0) + 1; });
+    const owners = Object.keys(counts).map((id) => S.players[id]).filter(Boolean).sort((a, b) => counts[b.id] - counts[a.id]);
+    const myList = drawn && mine.length
+      ? `<div class="sq-mine">${mine.map((i) => `<span class="chip on">${esc(away)} <b>${r.sq_cols[i % 10]}</b> · ${esc(home)} <b>${r.sq_rows[Math.floor(i / 10)]}</b></span>`).join('')}</div>`
+      : `<p class="small muted">${mine.length ? `You have ${mine.length} square${mine.length === 1 ? '' : 's'}. Your numbers appear when the host draws them.` : open ? 'Tap empty squares to claim them. Tap one of yours to give it back.' : 'You don’t have any squares in this game.'}</p>`;
+    const periodRows = Squares.PERIODS.map((per) => {
+      const w = wins.find((x) => x.q === per.q);
+      const p = w && w.player && S.players[w.player];
+      return `<li><b>${per.name}</b> <span class="small muted">+${per.points}</span>
+        <span class="sq-score">${w ? `${esc(away)} ${w.away} – ${esc(home)} ${w.home}` : ''}</span>
+        <span class="sq-win">${!w ? '<span class="muted">—</span>' : p ? `🏆 ${esc(p.avatar)} ${esc(p.name)}` : '<span class="muted">Empty square</span>'}</span></li>`;
+    }).join('');
+    const host = isHost() ? `<div class="sq-host">${!drawn
+      ? `<button class="btn primary big" data-act="sqdraw">🎲 Lock board &amp; draw numbers</button><p class="small muted">Do this before kickoff once everyone has picked. After the draw, nobody can change squares.</p>`
+      : `<p class="small muted">Numbers are drawn. Winners are scored automatically at the end of Q1, halftime, Q3 and the final.</p>
+         ${wins.length ? '' : '<button class="btn small ghost" data-act="sqreopen">Re-open the board (clears the numbers)</button>'}`}</div>` : '';
+    return `<section class="card squares">
+      <div class="board-head"><h2>🔢 Squares</h2><span class="hint">${taken}/100 taken${drawn ? ' · numbers drawn' : open ? ' · open' : ''}</span></div>
+      <div class="sq-grid">${cells}</div>
+      ${myList}
+      ${owners.length ? `<p class="small muted sq-owners">${owners.map((p) => `${esc(p.avatar)} ${esc(p.name)} ${counts[p.id]}`).join(' · ')}</p>` : ''}
+    </section>
+    <section class="card"><h2>Winners</h2><ul class="sq-periods">${periodRows}</ul>
+      <p class="small muted">Winning square = last digit of each team’s score at the end of the period (${esc(away)} across the top, ${esc(home)} down the side).</p>
+      ${host}</section>`;
+  }
+
+  async function tapSquare(i) {
+    const r = S.room;
+    if (r.sq_cols || (r.sq_phase || 'open') !== 'open') { toast('🔒 The board is locked.', 'muted'); return; }
+    if (!S.me) { S.view = 'profile'; render(); return; }
+    const q = S.squares[i];
+    if (q && q.player !== S.me) { const p = S.players[q.player]; toast((p ? esc(p.name) : 'Someone') + ' has that square.', 'muted'); return; }
+    buzz(15);
+    try {
+      if (q) {
+        delete S.squares[i];
+        render();
+        await store.releaseSquare(S.code, i, S.me);
+      } else {
+        S.squares[i] = { room: S.code, idx: i, player: S.me };
+        render();
+        await store.claimSquare(S.code, i, S.me);
+      }
+    } catch (e) {
+      if (e.code === '23505' || /duplicate/i.test(e.message)) toast('Someone grabbed that square first!', 'bad');
+      else if (e.code === '42501' || /row-level security/i.test(e.message)) toast('🔒 The board is locked.', 'bad');
+      else if (/pc_squares|relation|schema cache/i.test(e.message)) toast('⚠️ Squares needs the updated database setup. Ask the host to re-run it (playcall/setup.html).', 'bad', 7000);
+      else toast('⚠️ ' + esc(e.message), 'bad');
+      refresh();
+    }
+  }
+
   function renderGame() {
     const r = S.room;
+    const tab = session.tab === 'squares' ? 'squares' : 'plays';
     if (!r) { $app.innerHTML = '<p class="muted center">Loading…</p>'; return; }
     const me = S.me ? S.players[S.me] : null;
     const onlineDot = S.online === 'live' ? '' : `<span class="net ${S.online}">${S.online === 'offline' ? 'Reconnecting…' : 'Connecting…'}</span>`;
@@ -599,6 +716,8 @@
       ${hostAway() ? `<div class="banner warn">😴 The host’s device stopped updating, so new plays won’t be scored.
         Ask the host to open the game, or <button class="link" data-act="takehost">make this device the host</button>.</div>` : ''}
       ${scorebug()}
+      <div class="tabs maintabs"><button class="${tab === 'plays' ? 'on' : ''}" data-act="tab" data-v="plays">🏈 Play calls</button><button class="${tab === 'squares' ? 'on' : ''}" data-act="tab" data-v="squares">🔢 Squares${myWinsBadge()}</button></div>
+      ${tab === 'squares' ? squaresView() : `
       <div id="fieldSlotNarrow" class="fieldslot"></div>
       <div class="layout">
         <div class="col">
@@ -614,7 +733,7 @@
           ${hostPanel()}
           ${!isHost() ? `<p class="center small muted"><button class="link" data-act="rules">Rules</button> · <button class="link" data-act="takehost">Make this device the host</button></p>` : ''}
         </div>
-      </div>
+      </div>`}
       ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>tap at the snap · play #${r.round}</small></button></div>` : ''}`;
     document.body.classList.toggle('has-lockbar', isHost());
     const slot = document.getElementById(wideMQ.matches ? 'fieldSlotWide' : 'fieldSlotNarrow');
@@ -832,6 +951,17 @@
       case 'lock': lockNow(); break;
       case 'share': share(); break;
       case 'rules': showRules(); break;
+      case 'tab': session.tab = el.dataset.v; saveSession(); render(); window.scrollTo(0, 0); break;
+      case 'sq': tapSquare(parseInt(el.dataset.i, 10)); break;
+      case 'sqdraw':
+        if (!confirm('Lock the board and draw the numbers? Nobody can change squares after this.')) break;
+        hostDo(() => patchRoom({ sq_phase: 'locked', sq_cols: Squares.shuffledDigits(), sq_rows: Squares.shuffledDigits(), sq_wins: [] }))
+          .then(() => { if (S.room && !S.room.sq_cols) toast('⚠️ Squares needs the updated database setup (playcall/setup.html).', 'bad', 7000); });
+        break;
+      case 'sqreopen':
+        if (!confirm('Re-open the board? The drawn numbers are cleared and people can change squares again.')) break;
+        hostDo(() => patchRoom({ sq_phase: 'open', sq_cols: null, sq_rows: null, sq_wins: [] }));
+        break;
       case 'recent': session.recentOpen = !session.recentOpen; saveSession(); render(); break;
       case 'close': closeModal(); break;
       case 'games': S.gamesDay = 0; S.gamesLeague = (S.room && S.room.league) || 'nfl'; showGames(); break;

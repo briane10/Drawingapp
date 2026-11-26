@@ -132,5 +132,37 @@ begin
   end loop;
 end $$;
 
+-- ===== Squares mini-game (added later; safe to run again) =====
+alter table pc_rooms add column if not exists sq_phase text not null default 'open';
+alter table pc_rooms add column if not exists sq_cols  jsonb;   -- digits across the top (away team)
+alter table pc_rooms add column if not exists sq_rows  jsonb;   -- digits down the side (home team)
+alter table pc_rooms add column if not exists sq_wins  jsonb not null default '[]'::jsonb;
+
+create table if not exists pc_squares (
+  room        text not null references pc_rooms(code) on delete cascade,
+  idx         int  not null check (idx between 0 and 99),     -- row * 10 + column
+  player      uuid not null references pc_players(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (room, idx)                                     -- one owner per square
+);
+
+create or replace function pc_squares_open(r text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from pc_rooms where code = r and coalesce(sq_phase, 'open') = 'open');
+$$;
+
+alter table pc_squares enable row level security;
+drop policy if exists pc_squares_read on pc_squares;
+create policy pc_squares_read on pc_squares for select to anon, authenticated using (true);
+drop policy if exists pc_squares_insert on pc_squares;
+create policy pc_squares_insert on pc_squares for insert to anon, authenticated with check (pc_squares_open(room));
+drop policy if exists pc_squares_delete on pc_squares;
+create policy pc_squares_delete on pc_squares for delete to anon, authenticated using (pc_squares_open(room));
+alter table pc_squares replica identity full;
+do $$ begin
+  alter publication supabase_realtime add table pc_squares;
+exception when duplicate_object then null;
+end $$;
+
 -- Optional clean-up: delete rooms older than 3 days (run by hand whenever you like).
 -- delete from pc_rooms where created_at < now() - interval '3 days';
