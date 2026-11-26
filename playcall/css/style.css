@@ -302,3 +302,6 @@ b.big { font-size: 1.6rem; color: var(--accent); letter-spacing: .14em; }
 .recent li { grid-template-columns: 64px 1fr; padding: 3px 0; }
 .tk-more { flex: none; padding: 0 12px; font-weight: 900; font-size: .85rem; color: var(--accent); height: 100%; display: flex; align-items: center; border-left: 1px solid var(--line); }
 .recent ol { padding-top: 6px; }
+.sithead h2 { display: flex; align-items: center; gap: 8px; font-size: 1.25rem; }
+.sithead h2 img { width: 28px; height: 28px; object-fit: contain; }
+.sitdown { color: var(--accent); }

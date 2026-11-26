@@ -372,6 +372,19 @@
       </div>`;
   }
 
+  /** Heading for the pick board: who has the ball, the down and yards to go (falls back to "Play #N"). */
+  function situationHead(round) {
+    const st = S.room.status;
+    const live = st && st.state === 'in';
+    const keep = st && !st.downShort && live && S.lastDD && S.lastDD.id === st.id ? S.lastDD : null;
+    const down = st && (st.downShort || (keep && keep.down));
+    const spot = st && (st.downShort ? st.ballOn : keep ? keep.ballOn : '');
+    const team = st && st.poss ? (st.poss === st.home.abbr ? st.home : st.poss === st.away.abbr ? st.away : { abbr: st.poss }) : null;
+    if (!live || !team || !down) return `<h2>Play #${round}</h2>`;
+    return `<div class="sithead"><h2>${team.logo ? `<img src="${esc(team.logo)}" alt="" onerror="this.remove()">` : '🏈 '}${esc(team.abbr)} ball · <span class="sitdown">${esc(down)}</span></h2>
+      <div class="small muted">${spot ? 'at ' + esc(spot) + ' · ' : ''}Play #${round}</div></div>`;
+  }
+
   function pickBoard() {
     const r = S.room;
     if (r.status && r.status.state === 'post' && !(r.pending || []).length && r.rz_phase === 'none') {
@@ -391,7 +404,7 @@
       : saved.play_type ? '✓ Locked in. Change it until the snap.'
       : 'Tap Run or Pass to make your call.';
     return `<section class="card board">
-      <div class="board-head"><h2>Play #${round}</h2><span class="hint">${status}</span></div>
+      <div class="board-head">${situationHead(round)}<span class="hint">${status}</span></div>
       <div class="grid2">${btn('play_type', 'run', 'RUN', '🏃')}${btn('play_type', 'pass', 'PASS', '🎯')}</div>
       <div class="sub ${hasType ? '' : 'dim'}">Which way? <small>+${POINTS.dir}</small></div>
       <div class="grid3">${btn('dir', 'left', 'Left', '⬅︎')}${btn('dir', 'center', 'Middle', '⬆︎')}${btn('dir', 'right', 'Right', '➡︎')}</div>
