@@ -184,7 +184,7 @@
     function update(status) {
       if (status) {
         setTeams(status.away, status.home);
-        state = { los: status.los != null ? status.los : state.los, possHome: status.possHome != null ? status.possHome : state.possHome, togo: status.togo };
+        state = { los: status.los !== undefined ? status.los : state.los, possHome: status.possHome !== undefined ? status.possHome : state.possHome, togo: status.togo };
       } else setTeams(null, null);
       if (!busy) { restYL = state.los; restLat = 0.5; idle(); }
     }

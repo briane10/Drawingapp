@@ -228,21 +228,26 @@
     });
     plays.sort((a, b) => a.seq - b.seq);
     const currentId = drives.current ? drives.current.id : (list.length ? list[list.length - 1].id : null);
+    Object.values(driveInfo).forEach((d) => {
+      // ESPN keeps a finished drive as "current" (with its result filled in) until the next one starts.
+      d.done = !!d.result;
+    });
     const status = scoreEvent ? statusFromEvent(scoreEvent, league) : null;
     if (status && homeId) {
       // Where the ball is now, who has it, and the line to gain, for the field picture.
       const lastSnap = plays.filter((p) => p.kind !== 'ignore' && p.endYL != null).pop();
-      if (lastSnap) {
+      const curDone = currentId && driveInfo[currentId] && driveInfo[currentId].done;
+      if (lastSnap && curDone) {
+        status.los = null; // between drives (score, punt, turnover): no line of scrimmage yet
+        status.possHome = null;
+        status.togo = null;
+      } else if (lastSnap) {
         status.los = lastSnap.endYL;
         status.possHome = lastSnap.scoring || lastSnap.turnover ? null : lastSnap.endTeam === homeId;
         status.togo = lastSnap.togo;
       }
     }
-    const gameOver = status ? status.state === 'post' : false;
-    Object.values(driveInfo).forEach((d) => {
-      d.done = !!d.result && (d.id !== currentId || gameOver);
-    });
-
+    
     // Red zone: trust the scoreboard flag, fall back to the last snap's field position.
     let rz = null;
     if (currentId && driveInfo[currentId] && !driveInfo[currentId].done) {
