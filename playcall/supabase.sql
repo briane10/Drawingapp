@@ -59,10 +59,13 @@ create table if not exists pc_results (
   yards       int,
   drive       text check (drive in ('td', 'fg', 'none')),
   text        text check (char_length(text) <= 600),
+  anim        jsonb,                                -- where the ball went, for the field animation
   source      text not null default 'auto' check (source in ('auto', 'host')),
   created_at  timestamptz not null default now(),
   primary key (room, kind, round)
 );
+
+alter table pc_results add column if not exists anim jsonb;
 
 -- Picks can only be made or changed while that round is open. The database enforces this,
 -- so nobody can sneak a pick in after the host taps LOCK.

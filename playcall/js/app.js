@@ -20,6 +20,9 @@
   const cfgFromFile = !!(fileCfg.supabaseUrl && fileCfg.supabaseKey);
   const store = window.Store.create(cfg);
 
+  const field = window.Field.create();
+  const wideMQ = window.matchMedia('(min-width: 820px)');
+  if (wideMQ.addEventListener) wideMQ.addEventListener('change', () => scheduleRender());
   const S = {
     view: 'home',
     code: null,
@@ -102,11 +105,13 @@
     if (!S.me) return;
     const pk = S.picks[[S.me, r.kind, r.round].join('|')];
     if (r.void) {
+      if (S.view === 'game' && r.kind === 'play') field.play(r);
       if (pk) toast('Play #' + r.round + ' doesn’t count: no points either way.', 'muted');
       return;
     }
     const s = scorePick(pk, r);
     const what = r.kind === 'drive' ? '🚨 Drive: ' + LABELS[r.drive] : resultLine(r);
+    if (S.view === 'game') field.play(r);
     if (!pk) toast(esc(what) + '<br><small>You didn’t make a call.</small>', 'muted');
     else if (s.total > 0) { toast('<b>+' + s.total + '</b> ' + esc(what), 'good', 4500); buzz(40); }
     else toast('0 pts · ' + esc(what), 'bad');
@@ -155,6 +160,8 @@
   }
 
   let lastScoreboard = 0;
+  let lastEv = null;
+  let lastEvId = null;
   let lastSummary = 0;
   let ticking = false;
   async function hostTick(force) {
@@ -173,7 +180,9 @@
       if (force || now - lastScoreboard > (live ? 12000 : 30000)) {
         lastScoreboard = now;
         ev = await ESPN.getScoreboardEvent(room.league, room.event_id);
+        if (ev) { lastEv = ev; lastEvId = room.event_id; }
       }
+      if (!ev && lastEvId === room.event_id) ev = lastEv;
       const summary = await ESPN.getSummary(room.league, room.event_id);
       const feed = ESPN.readFeed(summary, ev, room.league);
       S.feed = { ok: true, at: Date.now(), msg: '' };
@@ -190,7 +199,7 @@
         if (out.results.length) {
           await store.upsertResults(out.results.map((x) => ({
             room: S.code, kind: x.kind, round: x.round, void: !!x.void, play_type: x.play_type || null, dir: x.dir || null,
-            dist: x.dist || null, yards: x.yards == null ? null : x.yards, drive: x.drive || null, text: (x.text || '').slice(0, 600), source: 'auto',
+            dist: x.dist || null, yards: x.yards == null ? null : x.yards, drive: x.drive || null, text: (x.text || '').slice(0, 600), source: 'auto', anim: x.anim || null,
           })));
         }
         if (Object.keys(patch).length) await patchRoom(patch);
@@ -476,6 +485,7 @@
       ${onlineDot}
       ${store.kind === 'local' ? '<div class="banner warn small">🧪 Test mode: only tabs on this device share this game.</div>' : ''}
       ${scorebug()}
+      <div id="fieldSlotNarrow" class="fieldslot"></div>
       <div class="layout">
         <div class="col">
           ${rzCard()}
@@ -484,6 +494,7 @@
           ${lastResultCard()}
         </div>
         <div class="col">
+          <div id="fieldSlotWide" class="fieldslot"></div>
           ${board()}
           ${historyCard()}
           ${hostPanel()}
@@ -492,6 +503,8 @@
       </div>
       ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>tap at the snap · play #${r.round}</small></button></div>` : ''}`;
     document.body.classList.toggle('has-lockbar', isHost());
+    const slot = document.getElementById(wideMQ.matches ? 'fieldSlotWide' : 'fieldSlotNarrow');
+    if (slot) { slot.appendChild(field.el); field.update(r.status); }
   }
 
   // ---------- modals ----------

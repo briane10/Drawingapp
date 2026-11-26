@@ -252,3 +252,29 @@ b.big { font-size: 1.6rem; color: var(--accent); letter-spacing: .14em; }
 .toast.good b { color: var(--good); font-size: 1.2rem; }
 .toast.bad { border-color: var(--bad); }
 .toast.muted { color: var(--muted); }
+
+/* field + helmets */
+.fieldslot:not(:empty) { margin: 0 0 14px; }
+.fieldwrap { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line);
+  background: radial-gradient(ellipse at 50% 0%, #1d3a6a 0%, #0b1424 55%, #050a12 100%); }
+.fieldsvg { display: block; width: 100%; height: auto; }
+.ydnum { fill: rgba(255, 255, 255, .85); font-size: 22px; font-weight: 800; font-family: inherit; }
+.ydnum.far { font-size: 15px; fill: rgba(255, 255, 255, .5); }
+.eztext { fill: rgba(255, 255, 255, .9); font-size: 30px; font-weight: 900; letter-spacing: 4px; }
+.poss { font-size: 30px; }
+.helm { animation: hover 3.2s ease-in-out infinite; }
+.helm.right { animation-delay: -1.6s; }
+@keyframes hover { 50% { transform: translateY(-7px); } }
+.clashing .helm.left { animation: clashL .85s ease-in-out; }
+.clashing .helm.right { animation: clashR .85s ease-in-out; }
+@keyframes clashL { 0% { transform: none; } 35% { transform: translateX(-26px) rotate(-4deg); } 55% { transform: translateX(30px) rotate(3deg); } 100% { transform: none; } }
+@keyframes clashR { 0% { transform: none; } 35% { transform: translateX(26px) rotate(4deg); } 55% { transform: translateX(-30px) rotate(-3deg); } 100% { transform: none; } }
+.helm { transform-box: fill-box; transform-origin: center; }
+.spark { transition: opacity .1s; }
+.playlabel { font-size: 46px; font-weight: 900; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, .75); stroke-width: 8px; letter-spacing: 1px; transition: opacity .25s; }
+.playlabel.good { fill: var(--good); }
+.playlabel.bad { fill: #ff8a8a; }
+.playlabel.muted { fill: #e6e6e6; }
+.playlabel.big { fill: var(--accent); font-size: 58px; }
+.playsub { font-size: 24px; font-weight: 800; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, .75); stroke-width: 6px; text-transform: uppercase; letter-spacing: 2px; transition: opacity .25s; }
+@media (prefers-reduced-motion: reduce) { .helm, .clashing .helm.left, .clashing .helm.right { animation: none; } }

@@ -56,6 +56,7 @@
         logo: (t.team && t.team.logo) || '',
         score: t.score != null ? String(t.score) : '',
         color: t.team && t.team.color ? '#' + t.team.color : '',
+        alt: t.team && t.team.alternateColor ? '#' + t.team.alternateColor : '',
       };
       teams[t.homeAway] = info;
       byId[info.id] = info;
@@ -117,6 +118,9 @@
       wall: p.wallclock ? Date.parse(p.wallclock) : null,
       text: raw.replace(/\s+/g, ' ').trim(),
       typeText,
+      // Field position: ESPN measures yard lines 0-100 from the HOME team's goal line.
+      yl0: p.start && typeof p.start.yardLine === 'number' ? p.start.yardLine : null,
+      off: p.start && p.start.team ? String(p.start.team.id) : null,
     };
     if (!raw && !typeText) return Object.assign(base, { kind: 'ignore' });
     if (IGNORE_TYPES.test(typeText) || /two-point conversion attempt|end of (game|half|quarter)/i.test(raw) && !/\b(pass|rush)\b/i.test(typeText)) {
@@ -162,7 +166,16 @@
     if (yards == null) yards = parseYards(raw);
     if (yards == null && !/penalty|fumble/i.test(typeText)) yards = typeof p.statYardage === 'number' ? p.statYardage : null;
     if (yards == null) yards = 0;
-    return Object.assign(base, { kind: 'play', playType, dir, yards, dist: distBucket(yards) });
+    const depthM = main.match(/\b(short|deep)\b/i);
+    const fx = {
+      depth: depthM ? depthM[1].toLowerCase() : null,
+      inc: /\bincomplete\b/i.test(main),
+      int: /INTERCEPTED|intercepted by/i.test(raw),
+      sack: /\bsacked\b/i.test(main),
+      td: /TOUCHDOWN/i.test(raw) && !/INTERCEPTED|FUMBLES/i.test(raw),
+      fum: /FUMBLES/i.test(raw) && !!p.isTurnover,
+    };
+    return Object.assign(base, { kind: 'play', playType, dir, yards, dist: distBucket(yards), fx });
   }
 
   function distBucket(y) {
@@ -178,6 +191,11 @@
     if (drives.current && !list.find((d) => d.id === drives.current.id)) list.push(drives.current);
     const seen = new Set();
     const plays = [];
+    let homeId = null;
+    try {
+      const comp = summary.header.competitions[0].competitors.find((c) => c.homeAway === 'home');
+      homeId = String(comp.team ? comp.team.id : comp.id);
+    } catch (e) { /* no header */ }
     const driveInfo = {};
     list.forEach((d) => {
       driveInfo[d.id] = {
@@ -195,12 +213,31 @@
         c.endYTE = p.end && typeof p.end.yardsToEndzone === 'number' ? p.end.yardsToEndzone : null;
         c.scoring = !!p.scoringPlay;
         c.turnover = !!p.isTurnover;
+        c.endYL = p.end && typeof p.end.yardLine === 'number' ? p.end.yardLine : null;
+        c.endTeam = p.end && p.end.team ? String(p.end.team.id) : null;
+        c.togo = p.end && typeof p.end.distance === 'number' ? p.end.distance : null;
+        if (c.kind !== 'ignore' && c.yl0 != null && homeId) {
+          const home = c.off === homeId;
+          const sign = home ? 1 : -1;
+          c.anim = Object.assign({ from: c.yl0, home }, c.fx || {});
+          if (c.kind === 'play') c.anim.to = Math.max(0, Math.min(100, c.yl0 + sign * c.yards));
+          if (c.anim.td) c.anim.to = home ? 100 : 0;
+        }
         plays.push(c);
       });
     });
     plays.sort((a, b) => a.seq - b.seq);
     const currentId = drives.current ? drives.current.id : (list.length ? list[list.length - 1].id : null);
     const status = scoreEvent ? statusFromEvent(scoreEvent, league) : null;
+    if (status && homeId) {
+      // Where the ball is now, who has it, and the line to gain, for the field picture.
+      const lastSnap = plays.filter((p) => p.kind !== 'ignore' && p.endYL != null).pop();
+      if (lastSnap) {
+        status.los = lastSnap.endYL;
+        status.possHome = lastSnap.scoring || lastSnap.turnover ? null : lastSnap.endTeam === homeId;
+        status.togo = lastSnap.togo;
+      }
+    }
     const gameOver = status ? status.state === 'post' : false;
     Object.values(driveInfo).forEach((d) => {
       d.done = !!d.result && (d.id !== currentId || gameOver);
@@ -328,8 +365,8 @@
       if (pick) {
         pending.shift();
         lastSeq = pick.seq;
-        if (pick.kind === 'void') out.results.push({ kind: 'play', round: lock.r, void: true, text: pick.text, why: pick.why });
-        else out.results.push({ kind: 'play', round: lock.r, play_type: pick.playType, dir: pick.dir, dist: pick.dist, yards: pick.yards, text: pick.text });
+        if (pick.kind === 'void') out.results.push({ kind: 'play', round: lock.r, void: true, text: pick.text, why: pick.why, anim: pick.anim || null });
+        else out.results.push({ kind: 'play', round: lock.r, play_type: pick.playType, dir: pick.dir, dist: pick.dist, yards: pick.yards, text: pick.text, anim: pick.anim || null });
       } else if (later >= 2 || now - lock.t > 600e3) {
         // The feed has moved past this lock's moment without a snap (e.g. a flag before the snap).
         pending.shift();
