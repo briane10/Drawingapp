@@ -412,11 +412,10 @@
 
     // Too few locks to learn the TV delay yet: the host tapped LOCK when they SAW the snap, which is after
     // it really happened, so match each old-enough lock to the latest snap shortly before the tap.
-    // Fast path (TV close to live): a snap 0-12 seconds before the tap, once the feed has moved past it.
+    // Fast path (TV close to live): score as soon as the feed shows a snap 0-12 seconds before the tap.
     // Otherwise wait up to 150 seconds for the delay to be learned, then take the latest snap before the tap.
     const quick = (lock) => snaps.find((sn) => sn.seq > lastSeq && sn.wall <= lock.t + 5e3 && sn.wall >= lock.t - 12e3);
-    const passed = (lock) => snaps.some((sn) => sn.seq > lastSeq && sn.wall > lock.t + 15e3);
-    while (delay == null && pending.length && ((passed(pending[0]) && quick(pending[0])) || now - pending[0].t > 150e3)) {
+    while (delay == null && pending.length && (quick(pending[0]) || now - pending[0].t > 150e3)) {
       const lock = pending[0];
       const wide = now - lock.t > 150e3;
       let pick = null;
