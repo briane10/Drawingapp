@@ -87,7 +87,22 @@
       poss: poss ? poss.abbr : '',
       redZone: !!sit.isRedZone,
       lastPlay: sit.lastPlay && sit.lastPlay.text ? sit.lastPlay.text.replace(/\s+/g, ' ').trim() : '',
+      lastPlayId: sit.lastPlay && sit.lastPlay.id ? String(sit.lastPlay.id) : '',
+      lastPlayType: sit.lastPlay && sit.lastPlay.type ? sit.lastPlay.type.text || '' : '',
     };
+  }
+
+  /** Shorter play text for small screens: drop formation tags, jersey numbers and tackler names. */
+  function cleanText(t) {
+    return String(t || '')
+      .replace(/\s+/g, ' ')
+      .replace(/^\s*\(\d{1,2}:\d{2}\)\s*/, '')
+      .replace(/^\s*\([^)]*\)\s*/, '')
+      .replace(/^(No Huddle-)?Shotgun\s+/i, '')
+      .replace(/#\d+\s+/g, '')
+      .replace(/\s*\([^)]*\)\.?$/, '')
+      .replace(/\s*\[[^\]]*\]/g, '')
+      .trim();
   }
 
   // ---------- play parsing ----------
@@ -228,6 +243,9 @@
         c.togo = p.end && typeof p.end.distance === 'number' ? p.end.distance : null;
         c.endDown = p.end && p.end.down > 0 ? p.end.shortDownDistanceText || '' : '';
         c.endBallOn = p.end ? p.end.possessionText || '' : '';
+        c.q = p.period ? p.period.number : null;
+        c.clock = p.clock ? p.clock.displayValue : '';
+        c.startDD = p.start && p.start.down > 0 ? (p.start.shortDownDistanceText || '') + (p.start.possessionText ? ' at ' + p.start.possessionText : '') : '';
         if (c.kind !== 'ignore' && c.yl0 != null && homeId) {
           const home = c.off === homeId;
           const sign = home ? 1 : -1;
@@ -261,6 +279,15 @@
         const lastAny = plays.filter((p) => p.text).pop();
         if (lastAny) status.lastPlay = lastAny.text;
       }
+      // The last 5 plays for the play list (newest first). Skip timeouts and quarter breaks.
+      const shown = plays.filter((p) => p.text && !/timeout|two-minute|end period|end of|coin toss/i.test(p.typeText));
+      const recent = shown.slice(-5).reverse().map((p) => ({ id: p.id, q: p.q, clock: p.clock, dd: p.startDD, text: cleanText(p.text) }));
+      // The scoreboard usually knows about the newest play before the play-by-play does.
+      if (status.lastPlayId && !/timeout|two-minute|end period|end of|coin toss/i.test(status.lastPlayType || '') && !recent.some((r) => r.id === status.lastPlayId) && (!recent.length || status.lastPlayId > recent[0].id)) {
+        recent.unshift({ id: status.lastPlayId, q: status.period, clock: '', dd: '', text: cleanText(status.lastPlay) });
+        recent.length = Math.min(recent.length, 5);
+      }
+      status.recent = recent;
     }
     
     // Red zone: trust the scoreboard flag, fall back to the last snap's field position.
@@ -416,7 +443,7 @@
     return out;
   }
 
-  const api = { estimateDelay, LEAGUES, listGames, getScoreboardEvent, getSummary, statusFromEvent, classifyPlay, readFeed, engineStep, distBucket, driveOutcome };
+  const api = { cleanText, estimateDelay, LEAGUES, listGames, getScoreboardEvent, getSummary, statusFromEvent, classifyPlay, readFeed, engineStep, distBucket, driveOutcome };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ESPN = api;
 })(typeof window !== 'undefined' ? window : globalThis);

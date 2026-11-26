@@ -344,13 +344,22 @@
     const dd = st.downShort
       ? `<div class="ddrow"><span class="down">${esc(st.downShort)}</span>${st.ballOn ? `<span class="spot">Ball on <b>${esc(st.ballOn)}</b></span>` : ''}${st.redZone ? '<span class="rzpill">🚨 RED ZONE</span>' : ''}</div>`
       : live ? '<div class="ddrow"><span class="spot muted">Between plays</span></div>' : '';
+    const qShort = (n) => (n == null ? '' : n <= 4 ? 'Q' + n : 'OT');
+    const recent = (st.recent && st.recent.length ? st.recent : st.lastPlay ? [{ text: st.lastPlay }] : []).slice(0, 5);
     let ticker = '';
-    if (st.lastPlay) {
+    if (recent.length) {
+      const newest = recent[0].text;
       // Keep the scroll position steady across redraws by offsetting from when this text first appeared.
-      if (S.tickerText !== st.lastPlay) { S.tickerText = st.lastPlay; S.tickerStart = Date.now(); }
-      const len = Math.max(8, Math.round(st.lastPlay.length / 6));
+      if (S.tickerText !== newest) { S.tickerText = newest; S.tickerStart = Date.now(); }
+      const len = Math.max(8, Math.round(newest.length / 6));
       const delay = -(((Date.now() - S.tickerStart) / 1000) % len);
-      ticker = `<div class="ticker" aria-label="Last play"><span class="tk-label">LAST PLAY</span><div class="tk-viewport"><span class="tk-text" style="--len:${len}s;animation-delay:${delay.toFixed(2)}s">${esc(st.lastPlay)}</span></div></div>`;
+      const open = !!session.recentOpen;
+      ticker = `<button class="ticker" data-act="recent" aria-expanded="${open}" aria-label="Last play. Tap to ${open ? 'hide' : 'show'} the last ${recent.length} plays">
+          <span class="tk-label">LAST PLAY</span>
+          <span class="tk-viewport"><span class="tk-text" style="--len:${len}s;animation-delay:${delay.toFixed(2)}s">${esc(newest)}</span></span>
+          <span class="tk-more">${open ? '▴' : '▾ ' + recent.length}</span></button>
+        ${open ? `<div class="recent"><ol>${recent.map((p, i) => `
+          <li class="${i === 0 ? 'newest' : ''}"><span class="rc-meta">${esc([qShort(p.q), p.clock].filter(Boolean).join(' '))}${p.dd ? `<small>${esc(p.dd)}</small>` : ''}</span><span class="rc-text">${esc(p.text)}</span></li>`).join('')}</ol></div>` : ''}`;
     }
     return `<div class="bug ${st.redZone ? 'rz' : ''}">
         <div class="bugrow">${team(st.away, 'away')}<div class="mid">${center}</div>${team(st.home, 'home')}</div>
@@ -729,6 +738,7 @@
       case 'lock': lockNow(); break;
       case 'share': share(); break;
       case 'rules': showRules(); break;
+      case 'recent': session.recentOpen = !session.recentOpen; saveSession(); render(); break;
       case 'close': closeModal(); break;
       case 'games': S.gamesDay = 0; S.gamesLeague = (S.room && S.room.league) || 'nfl'; showGames(); break;
       case 'glg': S.gamesLeague = el.dataset.v; showGames(); break;
