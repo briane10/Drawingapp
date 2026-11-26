@@ -250,7 +250,7 @@
     try {
       const ev = await ESPN.getScoreboardEvent(room.league, room.event_id);
       if (ev) cEv = ev;
-      if (cSummaryId !== room.event_id || now - cSum > 20000) {
+      if (cSummaryId !== room.event_id || now - cSum > 10000) {
         cSum = now;
         cSummary = await ESPN.getSummary(room.league, room.event_id);
         cSummaryId = room.event_id;

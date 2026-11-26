@@ -268,6 +268,18 @@
       // Where the ball is now, who has it, and the line to gain, for the field picture.
       const lastSnap = plays.filter((p) => p.kind !== 'ignore' && p.endYL != null).pop();
       const curDone = currentId && driveInfo[currentId] && driveInfo[currentId].done;
+      // ESPN's scoreboard keeps the PRE-snap situation during timeouts, the two-minute warning and quarter
+      // breaks, and sometimes lags the play-by-play. Then the last real snap knows the true down & spot.
+      const newer = (a, b) => (a.length !== b.length ? a.length > b.length : a > b);
+      const sbBreak = /timeout|two-minute|end period|end of|coin toss/i.test(status.lastPlayType || '');
+      const pbpAhead = lastSnap && lastSnap.id && (!status.lastPlayId || newer(String(lastSnap.id), String(status.lastPlayId)));
+      if (lastSnap && !curDone && lastSnap.endDown && (sbBreak || pbpAhead)) {
+        status.los = lastSnap.endYL;
+        status.possHome = lastSnap.scoring || lastSnap.turnover ? null : lastSnap.endTeam === homeId;
+        status.togo = lastSnap.togo;
+        status.downShort = lastSnap.endDown;
+        status.ballOn = lastSnap.endBallOn || '';
+      }
       if (status.los == null && lastSnap && !curDone) {
         // Scoreboard had no field position: fall back to where the last snap ended.
         status.los = lastSnap.endYL;
