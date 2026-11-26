@@ -177,7 +177,7 @@
     lastSummary = now;
     try {
       let ev = null;
-      if (force || now - lastScoreboard > (live ? 12000 : 30000)) {
+      if (force || now - lastScoreboard > (live ? 5000 : 30000)) {
         lastScoreboard = now;
         ev = await ESPN.getScoreboardEvent(room.league, room.event_id);
         if (ev) { lastEv = ev; lastEvId = room.event_id; }
@@ -335,8 +335,21 @@
     }
     const team = (t, side) => `<div class="tm ${st.poss === t.abbr ? 'poss' : ''}">
         ${t.logo ? `<img src="${esc(t.logo)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="ab">${esc(t.abbr)}</span><span class="sc">${esc(t.score)}</span>${st.poss === t.abbr ? '<span class="ball" title="Has the ball">🏈</span>' : ''}</div>`;
+    const qtr = (n) => (n == null ? '' : n <= 4 ? ['1st', '2nd', '3rd', '4th'][n - 1] + ' QTR' : n === 5 ? 'OT' : n - 4 + 'OT');
+    const live = st.state === 'in';
+    const half = /half/i.test(st.detail || '');
+    const center = live && !half && st.period
+      ? `<div class="qtr">${esc(qtr(st.period))}</div><div class="clock">${esc(st.clock || '')}</div>`
+      : `<div class="clock">${esc(st.detail || '')}</div>`;
+    const dd = st.downShort
+      ? `<div class="ddrow"><span class="down">${esc(st.downShort)}</span>${st.ballOn ? `<span class="spot">Ball on <b>${esc(st.ballOn)}</b></span>` : ''}${st.redZone ? '<span class="rzpill">🚨 RED ZONE</span>' : ''}</div>`
+      : live ? '<div class="ddrow"><span class="spot muted">Between plays</span></div>' : '';
+    const ticker = st.lastPlay
+      ? `<div class="ticker" aria-label="Last play"><span class="tk-label">LAST PLAY</span><div class="tk-viewport"><span class="tk-text" style="--len:${Math.max(8, Math.round(st.lastPlay.length / 6))}s">${esc(st.lastPlay)}</span></div></div>`
+      : '';
     return `<div class="bug ${st.redZone ? 'rz' : ''}">
-        ${team(st.away, 'away')}<div class="mid"><div class="clock">${esc(st.detail)}</div>${st.down ? `<div class="dd">${esc(st.down)}</div>` : ''}</div>${team(st.home, 'home')}
+        <div class="bugrow">${team(st.away, 'away')}<div class="mid">${center}</div>${team(st.home, 'home')}</div>
+        ${dd}${ticker}
       </div>`;
   }
 

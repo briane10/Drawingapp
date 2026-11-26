@@ -61,10 +61,20 @@
       teams[t.homeAway] = info;
       byId[info.id] = info;
     });
-    const st = (e.status || c.status || {}).type || {};
+    const stAll = e.status || c.status || {};
+    const st = stAll.type || {};
     const sit = c.situation || {};
     const poss = sit.possession ? byId[String(sit.possession)] : null;
+    const homeId = teams.home ? teams.home.id : null;
     return {
+      period: stAll.period || null,
+      clock: stAll.displayClock || '',
+      // Field position from the scoreboard (it updates faster than the play-by-play).
+      los: typeof sit.yardLine === 'number' && sit.possession ? sit.yardLine : null,
+      possHome: sit.possession && homeId ? String(sit.possession) === homeId : null,
+      togo: typeof sit.distance === 'number' && sit.down > 0 ? sit.distance : null,
+      downShort: sit.down > 0 ? sit.shortDownDistanceText || '' : '',
+      ballOn: sit.possession ? sit.possessionText || '' : '',
       id: String(e.id),
       league,
       date: e.date,
@@ -76,7 +86,7 @@
       down: sit.downDistanceText || sit.shortDownDistanceText || '',
       poss: poss ? poss.abbr : '',
       redZone: !!sit.isRedZone,
-      lastPlay: sit.lastPlay && sit.lastPlay.text ? sit.lastPlay.text : '',
+      lastPlay: sit.lastPlay && sit.lastPlay.text ? sit.lastPlay.text.replace(/\s+/g, ' ').trim() : '',
     };
   }
 
@@ -216,6 +226,8 @@
         c.endYL = p.end && typeof p.end.yardLine === 'number' ? p.end.yardLine : null;
         c.endTeam = p.end && p.end.team ? String(p.end.team.id) : null;
         c.togo = p.end && typeof p.end.distance === 'number' ? p.end.distance : null;
+        c.endDown = p.end && p.end.down > 0 ? p.end.shortDownDistanceText || '' : '';
+        c.endBallOn = p.end ? p.end.possessionText || '' : '';
         if (c.kind !== 'ignore' && c.yl0 != null && homeId) {
           const home = c.off === homeId;
           const sign = home ? 1 : -1;
@@ -237,14 +249,17 @@
       // Where the ball is now, who has it, and the line to gain, for the field picture.
       const lastSnap = plays.filter((p) => p.kind !== 'ignore' && p.endYL != null).pop();
       const curDone = currentId && driveInfo[currentId] && driveInfo[currentId].done;
-      if (lastSnap && curDone) {
-        status.los = null; // between drives (score, punt, turnover): no line of scrimmage yet
-        status.possHome = null;
-        status.togo = null;
-      } else if (lastSnap) {
+      if (status.los == null && lastSnap && !curDone) {
+        // Scoreboard had no field position: fall back to where the last snap ended.
         status.los = lastSnap.endYL;
         status.possHome = lastSnap.scoring || lastSnap.turnover ? null : lastSnap.endTeam === homeId;
         status.togo = lastSnap.togo;
+        status.downShort = lastSnap.endDown || '';
+        status.ballOn = lastSnap.endBallOn || '';
+      }
+      if (!status.lastPlay) {
+        const lastAny = plays.filter((p) => p.text).pop();
+        if (lastAny) status.lastPlay = lastAny.text;
       }
     }
     

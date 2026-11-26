@@ -94,8 +94,26 @@
     }
     el('polygon', { points: quad(P(110, 0), P(-10, 0), P(-10, 1), P(110, 1)), fill: 'none', stroke: 'rgba(255,255,255,.8)', 'stroke-width': 3 }, fieldG);
 
-    const losLine = el('line', { stroke: '#3d8bff', 'stroke-width': 4, opacity: 0 }, svg);
-    const fdLine = el('line', { stroke: '#ffd23f', 'stroke-width': 4, opacity: 0 }, svg);
+    const losLine = el('line', { stroke: '#3d8bff', 'stroke-width': 5, opacity: 0 }, svg);
+    const fdLine = el('line', { stroke: '#ffd23f', 'stroke-width': 5, opacity: 0 }, svg);
+    function tag(fill, ink) {
+      const g = el('g', { opacity: 0, class: 'ftag' }, svg);
+      const r = el('rect', { rx: 9, ry: 9, height: 36, fill }, g);
+      const t = el('text', { y: 26, 'text-anchor': 'middle', fill: ink, class: 'ftagtext' }, g);
+      return { g, r, t };
+    }
+    const losTag = tag('#3d8bff', '#fff');
+    const fdTag = tag('#ffd23f', '#1d1600');
+    function placeTag(tg, yl, text, lat) {
+      if (yl == null || !text || yl <= 0 || yl >= 100) { tg.g.setAttribute('opacity', 0); return; }
+      tg.t.textContent = text;
+      const w = 18 + text.length * 14.5;
+      const q = P(yl, lat);
+      tg.r.setAttribute('x', -w / 2); tg.r.setAttribute('width', w);
+      tg.t.setAttribute('x', 0);
+      tg.g.setAttribute('transform', `translate(${q.x.toFixed(1)},${(q.y - 18).toFixed(1)})`);
+      tg.g.setAttribute('opacity', 1);
+    }
     const trail = el('polyline', { fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-dasharray': '2 8', 'stroke-linecap': 'round', opacity: 0 }, svg);
     const flag = el('g', { opacity: 0 }, svg);
     el('path', { d: 'M0 0 L14 -4 L18 8 L4 12 Z', fill: '#ffd23f', stroke: '#b38f00', 'stroke-width': 1.5 }, flag);
@@ -123,7 +141,7 @@
     const label = el('text', { x: 500, y: 300, class: 'playlabel', 'text-anchor': 'middle', opacity: 0 }, svg);
     const sublabel = el('text', { x: 500, y: 334, class: 'playsub', 'text-anchor': 'middle', opacity: 0 }, svg);
 
-    let state = { los: null, possHome: null, togo: null };
+    let state = { los: null, possHome: null, togo: null, downShort: '', ballOn: '' };
     let teamsKey = '';
     let busy = false;
     const queue = [];
@@ -158,7 +176,10 @@
       if (yl != null) placeBall(yl, restLat, 0, 0);
       setLine(losLine, state.los);
       const sign = state.possHome ? 1 : -1;
-      setLine(fdLine, state.los != null && state.togo && state.possHome != null ? state.los + sign * state.togo : null);
+      const fd = state.los != null && state.togo && state.possHome != null ? state.los + sign * state.togo : null;
+      setLine(fdLine, fd);
+      placeTag(losTag, state.los, state.downShort ? state.downShort + (state.ballOn ? ' · ' + state.ballOn : '') : state.ballOn, 1.0);
+      placeTag(fdTag, fd !== state.los ? fd : null, '1ST DOWN', 0.0);
       possL.textContent = state.possHome === false ? '🏈' : '';
       possR.textContent = state.possHome === true ? '🏈' : '';
     }
@@ -184,7 +205,7 @@
     function update(status) {
       if (status) {
         setTeams(status.away, status.home);
-        state = { los: status.los !== undefined ? status.los : state.los, possHome: status.possHome !== undefined ? status.possHome : state.possHome, togo: status.togo };
+        state = { los: status.los !== undefined ? status.los : state.los, possHome: status.possHome !== undefined ? status.possHome : state.possHome, togo: status.togo, downShort: status.downShort || '', ballOn: status.ballOn || '' };
       } else setTeams(null, null);
       if (!busy) { restYL = state.los; restLat = 0.5; idle(); }
     }
@@ -233,6 +254,8 @@
       target.setAttribute('opacity', 0);
       trail.setAttribute('opacity', 0);
       setLine(fdLine, null);
+      losTag.g.setAttribute('opacity', 0);
+      fdTag.g.setAttribute('opacity', 0);
       setLine(losLine, from);
       placeBall(from, 0.5, 0, 0);
       await clash();
