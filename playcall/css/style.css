@@ -309,3 +309,7 @@ b.big { font-size: 1.6rem; color: var(--accent); letter-spacing: .14em; }
 .rz-line:disabled { opacity: 1; }
 .rz-state { flex: none; font-size: .85rem; font-weight: 800; color: #ffb3b3; }
 .rz-submit { margin-top: 12px; }
+.rz-wrap { margin-bottom: 14px; }
+.rz-wrap .rz-line { margin-bottom: 6px; }
+.rz-host { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255, 255, 255, .2); }
+.rz-wrap .rz-host { margin-top: 0; border-top: none; padding: 0 4px; }

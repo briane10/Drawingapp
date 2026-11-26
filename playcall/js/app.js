@@ -473,12 +473,15 @@
     const saved = myPick('drive', round);
     const open = r.rz_phase === 'open';
     const label = { td: '🙌 Touchdown', fg: '🥅 Field goal', none: '🚫 No points' };
+    const hostRow = isHost() ? `<div class="rz-host"><span class="small">Host: drive ended in</span>
+        <button class="btn small" data-act="rzend" data-v="td">TD</button><button class="btn small" data-act="rzend" data-v="fg">FG</button><button class="btn small" data-act="rzend" data-v="none">Nothing</button>
+        <button class="btn small ghost" data-act="rzcancel">✕ Cancel</button></div>` : '';
     // Collapsed once you've submitted (or once it's locked): one line with your call.
     if ((saved && saved.drive && S.rzEdit !== round) || !open) {
       const yours = saved && saved.drive ? `Your call: <b>${label[saved.drive]}</b>` : 'You didn’t make a call';
-      return `<button class="card redzone rz-line" data-act="${open ? 'rzedit' : ''}" ${open ? '' : 'disabled'}>
+      return `<div class="rz-wrap"><button class="card redzone rz-line" data-act="${open ? 'rzedit' : ''}" ${open ? '' : 'disabled'}>
         <span>🚨 <b>Red zone</b> · ${yours}</span>
-        <span class="rz-state">${open ? 'Change ✎' : '🔒 Locked'}</span></button>`;
+        <span class="rz-state">${open ? 'Change ✎' : '🔒 Locked'}</span></button>${hostRow}</div>`;
     }
     const sel = S.rzSel[round] || (saved && saved.drive) || null;
     const btn = (v, txt) => `<button class="choice ${sel === v ? 'on' : ''}" data-act="rzsel" data-v="${v}">${txt}</button>`;
@@ -487,6 +490,7 @@
       <p class="small">How does this drive end? <b>${POINTS.drive} pts</b> · locks at the next snap</p>
       <div class="grid3">${btn('td', '🙌 TD')}${btn('fg', '🥅 FG')}${btn('none', '🚫 Nothing')}</div>
       <button class="btn primary big rz-submit" data-act="rzsubmit" ${sel ? '' : 'disabled'}>${S.rzSaving ? 'Saving…' : 'Submit my call'}</button>
+      ${hostRow}
     </section>`;
   }
 
@@ -843,7 +847,9 @@
       case 'fix': showResultEntry(el.dataset.kind, parseInt(el.dataset.round, 10)); break;
       case 'entry': S.entry[el.dataset.f] = el.dataset.v; if (el.dataset.f === 'play_type' && el.dataset.v === 'void') { S.entry.dir = null; S.entry.dist = null; } renderEntry(); break;
       case 'entrysave': saveEntry(); break;
-      case 'rzopen': hostDo(() => patchRoom({ rz_phase: 'open', rz_round: (S.room.rz_round || 0) + 1, rz_drive: null, rz_label: (liveStatus() && liveStatus().poss ? liveStatus().poss + ' in the red zone' : 'Red zone') })); break;
+      case 'rzopen':
+        if (!confirm('Start the red zone mini-game? Everyone gets a TD / FG / Nothing call for this drive.')) break;
+        hostDo(() => patchRoom({ rz_phase: 'open', rz_round: (S.room.rz_round || 0) + 1, rz_drive: null, rz_label: (liveStatus() && liveStatus().poss ? liveStatus().poss + ' in the red zone' : 'Red zone') })); break;
       case 'rzlock': hostDo(() => patchRoom({ rz_phase: 'locked' })); break;
       case 'rzend':
         hostDo(async () => {
