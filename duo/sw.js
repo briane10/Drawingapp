@@ -1,5 +1,5 @@
 /* Offline support: cache the app shell, serve cache-first, refresh in the background. */
-const CACHE = 'duoquest-v1';
+const CACHE = 'duoquest-v2';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/util.js', 'js/data.js', 'js/draw.js', 'js/puzzles.js', 'js/escape.js', 'js/app.js',

@@ -9,10 +9,11 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+html { background: #3a2590; }
 body {
   font-family: var(--font); font-size: 17px; line-height: 1.45; color: var(--ink);
   background: radial-gradient(circle at 15% 0%, #7b4dff 0, transparent 45%), radial-gradient(circle at 100% 100%, #ff5d8f55 0, transparent 50%), linear-gradient(160deg, var(--bg1), var(--bg2));
-  background-attachment: fixed; min-height: 100dvh;
+  min-height: 100dvh;
   -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -323,4 +324,26 @@ summary { font-weight: 800; cursor: pointer; }
   .describe { flex-direction: column; }
   .dd-side { width: auto; display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; }
   .dd-side p { display: none; }
+}
+
+/* ---------- leaderboard & finale ---------- */
+.board { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.board li { display: grid; grid-template-columns: 52px 1fr auto auto; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 16px; background: #f7f4ff; font-weight: 700; }
+.board li.me { background: #fff3c4; box-shadow: 0 0 0 3px var(--gold); }
+.board .rank { font-size: 1.5rem; text-align: center; }
+.board .team { min-width: 0; overflow-wrap: anywhere; }
+.board .team small { display: block; color: var(--muted); font-weight: 600; }
+.board .bstars small { color: var(--muted); font-weight: 600; }
+.board .bstars, .board .btime { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.board.compact li { padding: 8px 12px; }
+.mini-board h2 { margin-top: 0; }
+.statrow.big b { font-size: 1.8rem; }
+.finale h2 { margin-top: 18px; }
+.warnbox { background: #fff3c4; border-radius: 14px; padding: 10px 14px; font-weight: 700; }
+.map-sub { color: rgba(255, 255, 255, 0.85); font-weight: 700; margin: 0 0 6px; }
+@media (max-width: 560px) {
+  .board li { grid-template-columns: 40px 1fr auto; }
+  .board .btime { grid-column: 2 / -1; font-size: 0.9rem; color: var(--muted); }
+  #chips { gap: 4px; } #chips .chip { padding: 4px 8px; font-size: 0.85rem; }
+  .brand { font-size: 1.05rem; }
 }

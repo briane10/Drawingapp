@@ -83,6 +83,11 @@ A team adventure for **a kid (about 10) and a grown-up playing together on one i
 The **Adventure map** has 4 worlds (Starter Woods → Puzzle Island → Star Base → Champions' Tower) of increasing
 difficulty, with ⭐ stars to collect. **Free play** lets you pick any challenge and difficulty.
 
+**🏆 Leaderboard:** the adventure clock counts all the time a team spends in adventure stages (retries and quits
+included, paused while the app is in the background). When a team clears the final stage, it goes on the device's
+leaderboard, ranked by most stars, then fastest time. Then choose **🔁 Run it back** (same team, fresh adventure)
+or **👥 New team** (new names and avatars).
+
 Once GitHub Pages is on (see above), it's live at `https://<your-username>.github.io/<repo-name>/duo/`.
 Add it to the iPad Home Screen the same way. Locally: run `python3 -m http.server 8000`, then open http://localhost:8000/duo/.
 
