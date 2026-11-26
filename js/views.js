@@ -257,7 +257,7 @@
   const PRACTICE = [
     { id: 'free', emoji: '🎨', name: 'Free Draw', desc: 'A blank page. Draw anything!', ex: { mode: 'sandbox' } },
     { id: 'lines', emoji: '📏', name: 'Line Drills', desc: 'Ghost lines between dots.', ex: { mode: 'ghost', gen: 'lines', params: { n: 8 }, rounds: 3, tol: [7, 26], say: 'Connect the two dots with the <b>same color and number</b> using one straight line.' }, skill: 'line' },
-    { id: 'circles', emoji: '⭕', name: 'Circle Drills', desc: 'How round can you go?', ex: { mode: 'circles', count: 5, rounds: 2, say: 'Draw 5 circles. One stroke each!' }, skill: 'line' },
+    { id: 'circles', emoji: '⭕', name: 'Circle Drills', desc: 'How round can you go?', ex: { mode: 'circles', count: 5, rounds: 2, startLevel: 1 }, skill: 'line' },
     { id: 'gesture30', emoji: '💃', name: 'Gesture: 30s', desc: '5 quick poses, 30 seconds each.', ex: { mode: 'gesture', gen: 'mannequin', count: 5, seconds: 30 }, skill: 'figure' },
     { id: 'boxes', emoji: '📦', name: 'Box Challenge', desc: 'Copy boxes from any angle.', ex: { mode: 'copy', gen: 'box', params: {}, rounds: 5, tol: [9, 34], say: 'Copy the box on the right side.' }, skill: 'form' },
     { id: 'shading', emoji: '🌗', name: 'Shading Study', desc: 'Match the light and shadow.', ex: { mode: 'shade', gen: 'shadedRandom', rounds: 2, say: 'Shade the shape to match the reference.' }, skill: 'light' },

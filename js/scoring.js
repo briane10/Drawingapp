@@ -162,6 +162,63 @@
     return { score, fits, used, empty: !strokes.length };
   }
 
+
+  // ---------- circles drawn on target guides ----------
+  function circleTargets(board, targets) {
+    const strokes = board.inkStrokes().filter((st) => st.pts.length > 3 && U.pathLength(st.pts) > 40);
+    const groups = targets.map(() => ({ pts: [], strokes: 0 }));
+    strokes.forEach((st) => {
+      let best = -1, bestCost = Infinity;
+      targets.forEach((t, i) => {
+        const md = st.pts.reduce((a, q) => a + Math.hypot(q[0] - t.cx, q[1] - t.cy), 0) / st.pts.length;
+        if (md < t.r * 0.35 || md > t.r * 1.9) return;
+        const cost = Math.abs(md - t.r) / t.r;
+        if (cost < bestCost) { bestCost = cost; best = i; }
+      });
+      if (best >= 0) { groups[best].pts.push(...st.pts); groups[best].strokes++; }
+    });
+    const per = targets.map((t, i) => {
+      const g = groups[i];
+      if (g.pts.length < 8) return { t, missing: true, score: 0, reason: 'missing' };
+      const f = fitCircle(g.pts);
+      if (!f || f.r < 10) return { t, missing: true, score: 0, reason: 'missing' };
+      const round = U.clamp(1 - (f.rms / f.r - 0.012) / 0.06, 0, 1);
+      const sizeErr = (f.r - t.r) / t.r, off = Math.hypot(f.cx - t.cx, f.cy - t.cy) / t.r;
+      const acc = U.clamp(1 - (Math.abs(sizeErr) + off - 0.04) / 0.3, 0, 1);
+      const bins = new Array(36).fill(0);
+      g.pts.forEach((q) => { const a = Math.atan2(q[1] - f.cy, q[0] - f.cx); bins[Math.min(35, Math.floor(((a + Math.PI) / (2 * Math.PI)) * 36))] = 1; });
+      const coverage = bins.reduce((a, b) => a + b, 0) / 36;
+      const closed = U.clamp((coverage - 0.7) / 0.27, 0, 1);
+      let score = 100 * (0.55 * round + 0.45 * acc) * (0.4 + 0.6 * closed);
+      if (g.strokes > 2) score *= 0.95;
+      score = Math.round(score);
+      let reason;
+      const worst = Math.min(round, acc, closed);
+      if (score >= 90) reason = 'perfect!';
+      else if (worst === closed && closed < 0.8) reason = 'close the gap';
+      else if (worst === round && round < 0.8) reason = 'a bit lumpy';
+      else if (worst === acc && acc < 0.8) reason = Math.abs(sizeErr) > off ? (sizeErr < 0 ? 'too small' : 'too big') : 'off-center';
+      else reason = g.strokes > 2 ? 'try one stroke' : 'nice!';
+      return { t, f, round, acc, closed, strokes: g.strokes, score, reason };
+    });
+    const score = Math.round(per.reduce((a, c) => a + c.score, 0) / targets.length);
+    const avg = (k) => { const ok = per.filter((c) => !c.missing); return ok.length ? ok.reduce((a, c) => a + c[k], 0) / ok.length : 0; };
+    return { score, per, round: avg('round'), acc: avg('acc'), closed: avg('closed'), missing: per.filter((c) => c.missing).length, empty: !strokes.length };
+  }
+
+  function circleTargetTips(res) {
+    if (res.empty) return ['Draw a circle on each guide first! ⭕'];
+    const pct = (v) => Math.round(v * 100) + '%';
+    const tips = [`Round ${pct(res.round)} · Size & place ${pct(res.acc)} · Closed ${pct(res.closed)}`];
+    if (res.missing) tips.push(`${res.missing} circle${res.missing > 1 ? 's are' : ' is'} missing — draw one on every guide.`);
+    const worst = Math.min(res.round, res.acc, res.closed);
+    if (worst >= 0.9) tips.push('Round, the right size, and closed — excellent circles! 🌕');
+    else if (worst === res.round) tips.push('Lumpy circles come from drawing with the wrist. Lock your wrist and move your whole arm from the shoulder, a bit faster.');
+    else if (worst === res.acc) tips.push('Aim before you draw: circle in the air over the guide 2–3 times ("ghosting"), then put the Pencil down and go.');
+    else tips.push('Keep going until the end of the line meets the start — a little overlap is fine.');
+    return tips;
+  }
+
   // ---------- value scale ----------
   function valueScaleScore(board, boxes) {
     const g = board.inkGrid(GS);
@@ -343,5 +400,5 @@
     return tips;
   }
 
-  DA.score = { GS, likenessScore, likenessTips, lineScore, circleScore, valueScaleScore, shadeMatchScore, lineTips, circleTips, valueTips, shadeTips, fitCircle, distanceTransform };
+  DA.score = { GS, circleTargets, circleTargetTips, likenessScore, likenessTips, lineScore, circleScore, valueScaleScore, shadeMatchScore, lineTips, circleTips, valueTips, shadeTips, fitCircle, distanceTransform };
 })(window.DA);

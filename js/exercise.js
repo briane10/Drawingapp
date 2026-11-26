@@ -349,20 +349,66 @@
     // --- circles
     round_circles() {
       const n = this.ex.count || 4;
-      this.board.setGuide((ctx) => { ctx.fillStyle = 'rgba(120,130,150,.5)'; ctx.font = '600 22px system-ui'; ctx.fillText('Draw ' + n + ' circles anywhere ⭕', 40, 50); });
-      this.say(this.ex.say);
-      this.checkButtons(() => {
-        const res = S.circleScore(this.board, n);
-        this.board.setOverlay((ctx) => {
-          res.fits.forEach((f, i) => {
-            ctx.save(); ctx.strokeStyle = i < n ? 'rgba(16,172,132,.8)' : 'rgba(150,150,150,.5)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
-            ctx.beginPath(); ctx.arc(f.cx, f.cy, f.r, 0, Math.PI * 2); ctx.stroke();
-            ctx.setLineDash([]); ctx.fillStyle = '#10ac84'; ctx.font = '800 26px system-ui'; ctx.textAlign = 'center';
-            ctx.fillText(f.score, f.cx, f.cy + 9); ctx.restore();
-          });
+      const level = Math.min(2, (this.ex.startLevel || 0) + this.round);
+      if (!this.keepCircles || !this.circTargets) {
+        const r = this.r, cols = Math.ceil(n / 2), rows = n > 1 ? 2 : 1;
+        const cw = FULL.w / cols, chh = FULL.h / rows, maxR = Math.min(cw, chh) / 2 - 34;
+        this.circTargets = [];
+        for (let i = 0; i < n; i++) {
+          const row = Math.floor(i / cols), col = i % cols;
+          const inRow = row === rows - 1 ? n - cols * (rows - 1) : cols;
+          const x0 = FULL.x + (FULL.w - inRow * cw) / 2;
+          const rad = r.range(Math.max(60, maxR * 0.65), maxR);
+          this.circTargets.push({ cx: x0 + col * cw + cw / 2 + r.range(-12, 12), cy: FULL.y + row * chh + chh / 2 + r.range(-10, 10), r: rad });
+        }
+      }
+      this.keepCircles = false;
+      const T = this.circTargets;
+      this.board.setGuide((ctx) => {
+        ctx.save(); ctx.lineCap = 'round';
+        T.forEach((t, i) => {
+          ctx.fillStyle = 'rgba(90,100,120,.8)'; ctx.font = '800 20px system-ui'; ctx.textAlign = 'center';
+          ctx.fillText(String(i + 1), t.cx - t.r - 16, t.cy - t.r + 6);
+          if (level === 0) {
+            ctx.strokeStyle = 'rgba(84,160,255,.5)'; ctx.lineWidth = 4; ctx.setLineDash([12, 10]);
+            ctx.beginPath(); ctx.arc(t.cx, t.cy, t.r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+          } else if (level === 1) {
+            ctx.fillStyle = '#ff9f43';
+            [[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(t.cx + dx * t.r, t.cy + dy * t.r, 8, 0, Math.PI * 2); ctx.fill(); });
+          } else {
+            ctx.strokeStyle = 'rgba(90,100,120,.5)'; ctx.lineWidth = 2;
+            ctx.strokeRect(t.cx - t.r, t.cy - t.r, 2 * t.r, 2 * t.r);
+          }
+          ctx.strokeStyle = 'rgba(90,100,120,.6)'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(t.cx - 7, t.cy); ctx.lineTo(t.cx + 7, t.cy); ctx.moveTo(t.cx, t.cy - 7); ctx.lineTo(t.cx, t.cy + 7); ctx.stroke();
         });
-        if (res.used.length < n) ui.toast(`Only ${res.used.length} circle${res.used.length === 1 ? '' : 's'} found — draw ${n} to score full points.`);
-        this.showRoundResult(res.score, S.circleTips(res));
+        ctx.restore();
+      });
+      const says = [
+        'Trace each dashed circle in <b>one smooth stroke</b>. Move your whole arm from the shoulder!',
+        'Now just 4 dots and a center. Draw a circle that passes through all <b>4 orange dots</b>.',
+        'Hardest level: draw a circle that fits <b>inside each square</b>, touching all 4 sides.',
+      ];
+      this.say(`<b>Level ${level + 1} of 3:</b> ${says[level]}`);
+      this.checkButtons(() => {
+        const res = S.circleTargets(this.board, T);
+        this.board.setOverlay((ctx) => {
+          ctx.save();
+          res.per.forEach((c) => {
+            const t = c.t;
+            ctx.strokeStyle = 'rgba(16,172,132,.85)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+            ctx.beginPath(); ctx.arc(t.cx, t.cy, t.r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+            const col = c.score >= 75 ? '#10ac84' : c.score >= 50 ? '#f39c12' : '#ee5253';
+            const label = c.missing ? '— missing' : `${c.score} · ${c.reason}`;
+            ctx.font = '800 22px system-ui'; ctx.textAlign = 'center';
+            const w = ctx.measureText(label).width + 20, y = Math.min(790, t.cy + t.r + 30);
+            ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillRect(t.cx - w / 2, y - 22, w, 32);
+            ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(t.cx - w / 2, y - 22, w, 32);
+            ctx.fillStyle = col; ctx.fillText(label, t.cx, y + 2);
+          });
+          ctx.restore();
+        });
+        this.showRoundResult(res.score, S.circleTargetTips(res));
       });
     }
 
@@ -876,6 +922,7 @@
       this.board.setOverlay(null);
       this.board.enabled = true;
       this.resultEl.classList.add('hidden');
+      if (this.ex.mode === 'circles') this.keepCircles = true;
       // same target, fresh page (animal steps keep previous steps)
       if (this.ex.mode === 'animal') { this.startRound(); return; }
       this.board.clear(true);

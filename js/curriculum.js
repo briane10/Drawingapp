@@ -90,8 +90,9 @@
 <li>Try <b>going around 2–3 times in the air</b> first, then put the pencil down.</li>
 <li>Close the circle — the end should meet the start.</li>
 </ul>
-<p class="tip">💡 Each circle is scored for roundness. Can you get 90+?</p>`,
-        ex: { mode: 'circles', count: 4, rounds: 3, say: 'Draw 4 circles anywhere on the page. One stroke each!' },
+<p>Three levels: <b>trace</b> dashed circles → hit <b>4 dots</b> → fit a circle <b>inside a square</b>.</p>
+<p class="tip">💡 Each circle gets 3 scores: <b>Round</b> (smooth, not lumpy), <b>Size & place</b> (matches the guide), and <b>Closed</b> (the ends meet). Can you get 90+?</p>`,
+        ex: { mode: 'circles', count: 4, rounds: 3 },
       },
       {
         id: 'w1-fish', title: 'Animal: Fish', emoji: '🐟', skill: 'animals', xp: 100, animal: 'fish',
