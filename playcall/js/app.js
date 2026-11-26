@@ -332,9 +332,12 @@
     try { if ('wakeLock' in navigator && !wake) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch (e) { /* not allowed yet */ }
   }
 
+  let lastLockTap = 0;
   function lockNow() {
     if (!isHost()) return;
     const t = Date.now();
+    if (t - lastLockTap < 4000) { toast('Already locked: one tap per snap.', 'muted', 1500); return; }
+    lastLockTap = t;
     buzz(60);
     keepAwake();
     const flash = document.querySelector('.lockbar button');
@@ -563,7 +566,7 @@
     if (!pend.length) return '';
     return `<div class="pending">${pend.map((p) => {
       const pk = myPick('play', p.r);
-      return `<span class="chip">⏳ #${p.r}: ${esc(pickLine(pk))}</span>`;
+      return `<span class="chip">⏳ #${p.r} waiting for ESPN · you: ${esc(pk ? pickLine(pk) : 'no call')}</span>`;
     }).join('')}</div>`;
   }
 

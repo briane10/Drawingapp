@@ -336,7 +336,7 @@
   // the most lock taps with snaps, then match each lock to the snap that fits it.
   const MIN_DELAY = -20e3;
   const MAX_DELAY = 180e3;
-  const FIT = 7e3; // how far a lock may be from a perfect fit while calibrating
+  const FIT = 8e3; // how far a lock may be from a perfect fit while calibrating
   const MATCH = 10e3; // ...and when matching a lock to its snap
   const NEED = 3; // locks that must agree before we trust a delay
 
@@ -364,29 +364,23 @@
     if (locks.length < NEED || !snaps.length) return null;
     const lo = locks[0].t - MAX_DELAY - FIT;
     const hi = locks[locks.length - 1].t - MIN_DELAY + FIT;
-    const near = snaps.filter((s) => s.wall >= lo && s.wall <= hi);
-    let best = null;
+    const near = snaps.filter((s) => s.wall >= lo && s.wall <= hi).sort((a, b) => a.wall - b.wall);
+    // Try every delay from -20s to +180s, one second apart (ESPN's timestamps wobble by several seconds).
     const all = [];
-    const tried = new Set();
-    for (const L of locks) {
-      for (const S of near) {
-        const d = L.t - S.wall;
-        if (d < MIN_DELAY || d > MAX_DELAY) continue;
-        const key = Math.round(d / 1000);
-        if (tried.has(key)) continue;
-        tried.add(key);
-        const diffs = countFits(locks, near, d, FIT);
-        const m = median(diffs);
-        const err = diffs.reduce((acc, x) => acc + Math.abs(x - m), 0);
-        const c = { n: diffs.length, err, d: m };
-        all.push(c);
-        if (!best || c.n > best.n || (c.n === best.n && err < best.err)) best = c;
-      }
+    let best = null;
+    for (let d = MIN_DELAY; d <= MAX_DELAY; d += 1000) {
+      const diffs = countFits(locks, near, d, FIT);
+      if (!diffs.length) continue;
+      const m = median(diffs);
+      const err = diffs.reduce((acc, x) => acc + Math.abs(x - m), 0);
+      const c = { n: diffs.length, err, d: m, at: d };
+      all.push(c);
+      if (!best || c.n > best.n || (c.n === best.n && err < best.err)) best = c;
     }
     if (!best || best.n < NEED) return null;
     // Plays come at a steady rhythm, so a delay that's off by one play can fit almost as well.
     // Only trust the winner once it clearly beats every different delay.
-    const rival = all.filter((c) => Math.abs(c.d - best.d) > 2 * FIT).reduce((m, c) => Math.max(m, c.n), 0);
+    const rival = all.filter((c) => Math.abs(c.at - best.at) > 2 * FIT + 2000).reduce((m, c) => Math.max(m, c.n), 0);
     if (!opts || !opts.loose) { if (best.n - rival < 2) return null; }
     return best.d;
   }
@@ -418,12 +412,17 @@
 
     // Too few locks to learn the TV delay yet: the host tapped LOCK when they SAW the snap, which is after
     // it really happened, so match each old-enough lock to the latest snap shortly before the tap.
-    while (delay == null && pending.length && now - pending[0].t > 150e3) {
+    // Fast path (TV close to live): a snap 0-12 seconds before the tap, once the feed has moved past it.
+    // Otherwise wait up to 150 seconds for the delay to be learned, then take the latest snap before the tap.
+    const quick = (lock) => snaps.find((sn) => sn.seq > lastSeq && sn.wall <= lock.t + 5e3 && sn.wall >= lock.t - 12e3);
+    const passed = (lock) => snaps.some((sn) => sn.seq > lastSeq && sn.wall > lock.t + 15e3);
+    while (delay == null && pending.length && ((passed(pending[0]) && quick(pending[0])) || now - pending[0].t > 150e3)) {
       const lock = pending[0];
+      const wide = now - lock.t > 150e3;
       let pick = null;
       for (const sn of snaps) {
         if (sn.seq <= lastSeq) continue;
-        if (sn.wall <= lock.t + 5e3 && sn.wall >= lock.t - 75e3 && (!pick || sn.wall > pick.wall)) pick = sn;
+        if (sn.wall <= lock.t + 5e3 && sn.wall >= lock.t - (wide ? 75e3 : 12e3) && (!pick || sn.wall > pick.wall)) pick = sn;
       }
       pending.shift();
       if (pick) {
