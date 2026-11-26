@@ -268,6 +268,56 @@
     if (S.local && S.local.eventId === r.event_id && Date.now() - S.local.at < 30000 && S.local.status) return S.local.status;
     return r.status;
   }
+  // ---------- TV sync: hold the scoreboard back to match this TV ----------
+  const statusLog = []; // [{ at, st, key }]
+  S.firstSeen = {};
+  function noteStatus() {
+    const st = liveStatus();
+    if (!st) return;
+    const key = JSON.stringify(st);
+    const last = statusLog[statusLog.length - 1];
+    if (last && last.key === key) return;
+    const now = Date.now();
+    statusLog.push({ at: now, st, key });
+    const lp = st.recent && st.recent[0] ? st.recent[0].text : st.lastPlay;
+    if (lp && !S.firstSeen[lp]) S.firstSeen[lp] = now;
+    while (statusLog.length > 2 && statusLog[1].at < now - 6 * 60e3) statusLog.shift();
+  }
+  function tvDelayMs() { return Math.max(0, (session.tvDelay || 0) * 1000); }
+  /** What this screen shows: the live status, or the one from tvDelay seconds ago. */
+  function shownStatus() {
+    noteStatus();
+    const d = tvDelayMs();
+    if (!d || !statusLog.length) return liveStatus();
+    const cutoff = Date.now() - d;
+    let pick = null;
+    for (const e of statusLog) { if (e.at <= cutoff) pick = e; else break; }
+    return (pick || statusLog[0]).st;
+  }
+  let shownKey = '';
+  setInterval(() => {
+    if (S.view !== 'game' || !S.room) return;
+    const st = shownStatus();
+    const k = st ? JSON.stringify(st) : '';
+    if (k !== shownKey) { shownKey = k; scheduleRender(); }
+  }, 1000);
+  function showTvSync() {
+    const st = liveStatus();
+    const lp = st ? (st.recent && st.recent[0] ? st.recent[0].text : st.lastPlay) : '';
+    const shown = shownStatus();
+    const shownLp = shown ? (shown.recent && shown.recent[0] ? shown.recent[0].text : shown.lastPlay) : '';
+    const d = session.tvDelay || 0;
+    openModal(`<h2>📺 Sync with my TV</h2>
+      <p class="small">If the app shows plays before your TV does, hold it back so nothing gets spoiled. This only changes <b>this device</b>.</p>
+      <div class="tvsync-now">Holding back: <b>${d ? d + ' seconds' : 'nothing (live)'}</b></div>
+      ${lp ? `<p class="small muted">Newest play from ESPN:</p><p class="tvsync-play">${esc(lp)}</p>
+      <button class="btn primary big" data-act="tvsyncnow">✅ That play just happened on my TV</button>
+      <p class="small muted">Wait for it on TV, then tap. The app measures the gap for you.</p>` : '<p class="small muted">Waiting for the first play from ESPN…</p>'}
+      <div class="row wrap gap"><button class="btn small" data-act="tvadj" data-v="-5">−5s</button><button class="btn small" data-act="tvadj" data-v="5">+5s</button>
+        <button class="btn small" data-act="tvadj" data-v="15">+15s</button><button class="btn small ghost" data-act="tvadj" data-v="0">Reset to live</button></div>
+      ${shownLp && shownLp !== lp ? `<p class="small muted">Showing now: ${esc(shownLp)}</p>` : ''}`);
+  }
+
   function hostAway() {
     const r = S.room;
     if (!r || isHost() || !r.event_id || !r.auto || !r.host_key || !S.local || S.local.eventId !== r.event_id) return false;
@@ -393,7 +443,7 @@
   }
 
   function scorebug() {
-    const st = liveStatus();
+    const st = shownStatus();
     if (!st) {
       return `<div class="bug empty">${S.room.event_id ? 'Loading the scoreboard…' : (isHost() ? '<button class="btn small" data-act="games">📺 Pick the game you’re watching</button>' : 'Waiting for the host to pick a game…')}</div>`;
     }
@@ -432,7 +482,8 @@
     }
     const yte = st.los != null && st.possHome != null ? (st.possHome ? 100 - st.los : st.los) : null;
     const inRz = !!downTxt && yte != null && yte > 0 && yte <= 20;
-    return `<div class="bug ${inRz ? 'rz' : ''}">
+    const syncBtn = `<button class="tvsync-btn" data-act="tvsync" title="Match the app to your TV">📺 ${session.tvDelay ? '−' + session.tvDelay + 's' : 'TV sync'}</button>`;
+    return `<div class="bug ${inRz ? 'rz' : ''}">${syncBtn}
         <div class="bugrow">${team(st.away, 'away')}<div class="mid">${center}</div>${team(st.home, 'home')}</div>
         ${dd}${ticker}
       </div>`;
@@ -440,7 +491,7 @@
 
   /** Heading for the pick board: who has the ball, the down and yards to go (falls back to "Play #N"). */
   function situationHead(round) {
-    const st = liveStatus();
+    const st = shownStatus();
     const live = st && st.state === 'in';
     const keep = st && !st.downShort && live && S.lastDD && S.lastDD.id === st.id ? S.lastDD : null;
     const down = st && (st.downShort || (keep && keep.down));
@@ -611,7 +662,7 @@
     wins.slice(S.sqWinsSeen).forEach((w) => {
       const per = Squares.PERIODS.find((p) => p.q === w.q);
       const p = w.player && S.players[w.player];
-      const st = liveStatus() || {};
+      const st = shownStatus() || {};
       const score = `${(st.away && st.away.abbr) || 'Away'} ${w.away} – ${(st.home && st.home.abbr) || 'Home'} ${w.home}`;
       if (p && w.player === S.me) { toast(`🏆 <b>You won ${per.name} squares!</b> +${per.points}<br><small>${esc(score)}</small>`, 'good', 7000); buzz(80); }
       else toast(`🔢 ${per.name} squares: ${p ? esc(p.avatar + ' ' + p.name) + ' wins +' + per.points : 'empty square, no winner'}<br><small>${esc(score)}</small>`, p ? '' : 'muted', 6000);
@@ -621,7 +672,7 @@
 
   function squaresView() {
     const r = S.room;
-    const st = liveStatus() || {};
+    const st = shownStatus() || {};
     const away = (st.away && st.away.abbr) || 'AWAY';
     const home = (st.home && st.home.abbr) || 'HOME';
     const drawn = !!(r.sq_cols && r.sq_rows);
@@ -744,7 +795,7 @@
       ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>tap at the snap · play #${r.round}</small></button></div>` : ''}`;
     document.body.classList.toggle('has-lockbar', isHost());
     const slot = document.getElementById(wideMQ.matches ? 'fieldSlotWide' : 'fieldSlotNarrow');
-    if (slot) { slot.appendChild(field.el); field.update(liveStatus()); }
+    if (slot) { slot.appendChild(field.el); field.update(shownStatus()); }
   }
 
   // ---------- modals ----------
@@ -958,6 +1009,25 @@
       case 'lock': lockNow(); break;
       case 'share': share(); break;
       case 'rules': showRules(); break;
+      case 'tvsync': showTvSync(); break;
+      case 'tvsyncnow': {
+        const st = liveStatus();
+        const lp = st ? (st.recent && st.recent[0] ? st.recent[0].text : st.lastPlay) : '';
+        const seen = lp && S.firstSeen[lp];
+        if (seen) {
+          session.tvDelay = Math.min(300, Math.max(0, Math.round((Date.now() - seen) / 1000) + 2));
+          saveSession();
+          toast('📺 Synced: holding the app back ' + session.tvDelay + 's to match your TV.', 'good', 4000);
+        }
+        closeModal(); render();
+        break;
+      }
+      case 'tvadj': {
+        const v = parseInt(el.dataset.v, 10);
+        session.tvDelay = v === 0 ? 0 : Math.min(300, Math.max(0, (session.tvDelay || 0) + v));
+        saveSession(); showTvSync(); render();
+        break;
+      }
       case 'tab': session.tab = el.dataset.v; saveSession(); render(); window.scrollTo(0, 0); break;
       case 'sq': tapSquare(parseInt(el.dataset.i, 10)); break;
       case 'sqdraw':

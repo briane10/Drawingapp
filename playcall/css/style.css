@@ -340,3 +340,8 @@ b.big { font-size: 1.6rem; color: var(--accent); letter-spacing: .14em; }
 .sq-win { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-weight: 800; }
 .sq-host { margin-top: 12px; }
 .sq-cap { display: grid; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.bug { position: relative; }
+.tvsync-btn { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font-size: .62rem; font-weight: 800; color: var(--muted); background: rgba(255,255,255,.06); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; z-index: 2; }
+.bug .bugrow { padding-top: 14px; }
+.tvsync-now { font-size: 1.05rem; margin: 10px 0; }
+.tvsync-play { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-weight: 600; }
