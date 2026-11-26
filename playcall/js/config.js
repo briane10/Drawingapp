@@ -3,6 +3,6 @@
    Both are safe to publish: the database rules in supabase.sql decide what anyone can do.
    Leave them empty to run in local test mode (one device, multiple tabs). */
 window.PLAYCALL_CONFIG = {
-  supabaseUrl: '',
-  supabaseKey: '',
+  supabaseUrl: 'https://ozbbrlawqgkoaviocmbf.supabase.co',
+  supabaseKey: 'sb_publishable_tcsiAHanF6-QDBKal5WmTg_mKFXDN6Y',
 };
