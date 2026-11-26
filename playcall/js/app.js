@@ -650,7 +650,7 @@
     const owners = Object.keys(counts).map((id) => S.players[id]).filter(Boolean).sort((a, b) => counts[b.id] - counts[a.id]);
     const myList = drawn && mine.length
       ? `<div class="sq-mine">${mine.map((i) => `<span class="chip on">${esc(away)} <b>${r.sq_cols[i % 10]}</b> · ${esc(home)} <b>${r.sq_rows[Math.floor(i / 10)]}</b></span>`).join('')}</div>`
-      : `<p class="small muted">${mine.length ? `You have ${mine.length} square${mine.length === 1 ? '' : 's'}. Your numbers appear when the host draws them.` : open ? 'Tap empty squares to claim them. Tap one of yours to give it back.' : 'You don’t have any squares in this game.'}</p>`;
+      : `<p class="small muted">${mine.length ? `You have <b>${mine.length}${r.sq_max && mine.length <= r.sq_max ? ' of ' + r.sq_max : ''}</b> square${(r.sq_max && mine.length <= r.sq_max ? r.sq_max : mine.length) === 1 ? '' : 's'}${r.sq_max && mine.length > r.sq_max ? ' (the limit is now ' + r.sq_max + ')' : ''}. Your numbers appear when the host draws them.` : open ? `Tap empty squares to claim them${r.sq_max ? ` (up to <b>${r.sq_max}</b> each)` : ''}. Tap one of yours to give it back.` : 'You don’t have any squares in this game.'}</p>`;
     const periodRows = Squares.PERIODS.map((per) => {
       const w = wins.find((x) => x.q === per.q);
       const p = w && w.player && S.players[w.player];
@@ -659,11 +659,15 @@
         <span class="sq-win">${!w ? '<span class="muted">—</span>' : p ? `🏆 ${esc(p.avatar)} ${esc(p.name)}` : '<span class="muted">Empty square</span>'}</span></li>`;
     }).join('');
     const host = isHost() ? `<div class="sq-host">${!drawn
-      ? `<button class="btn primary big" data-act="sqdraw">🎲 Lock board &amp; draw numbers</button><p class="small muted">Do this before kickoff once everyone has picked. After the draw, nobody can change squares.</p>`
+      ? `<div class="sq-cap"><span class="small"><b>Max squares per player:</b> ${r.sq_max || 'no limit'}</span>
+          <div class="row wrap"><button class="btn small" data-act="sqmax" data-v="even">Even split (${Math.max(1, Math.floor(100 / Math.max(1, playersList().length)))})</button>
+          <button class="btn small" data-act="sqmax" data-v="ask">Set a number…</button>
+          ${r.sq_max ? '<button class="btn small ghost" data-act="sqmax" data-v="none">No limit</button>' : ''}</div></div>
+        <button class="btn primary big" data-act="sqdraw">🎲 Lock board &amp; draw numbers</button><p class="small muted">Do this before kickoff once everyone has picked. After the draw, nobody can change squares.</p>`
       : `<p class="small muted">Numbers are drawn. Winners are scored automatically at the end of Q1, halftime, Q3 and the final.</p>
          ${wins.length ? '' : '<button class="btn small ghost" data-act="sqreopen">Re-open the board (clears the numbers)</button>'}`}</div>` : '';
     return `<section class="card squares">
-      <div class="board-head"><h2>🔢 Squares</h2><span class="hint">${taken}/100 taken${drawn ? ' · numbers drawn' : open ? ' · open' : ''}</span></div>
+      <div class="board-head"><h2>🔢 Squares</h2><span class="hint">${taken}/100 taken${r.sq_max ? ' · max ' + r.sq_max + ' each' : ''}${drawn ? ' · numbers drawn' : open ? ' · open' : ''}</span></div>
       <div class="sq-grid">${cells}</div>
       ${myList}
       ${owners.length ? `<p class="small muted sq-owners">${owners.map((p) => `${esc(p.avatar)} ${esc(p.name)} ${counts[p.id]}`).join(' · ')}</p>` : ''}
@@ -679,6 +683,9 @@
     if (!S.me) { S.view = 'profile'; render(); return; }
     const q = S.squares[i];
     if (q && q.player !== S.me) { const p = S.players[q.player]; toast((p ? esc(p.name) : 'Someone') + ' has that square.', 'muted'); return; }
+    const cap = r.sq_max || null;
+    const have = Object.values(S.squares).filter((x) => x.player === S.me).length;
+    if (!q && cap && have >= cap) { toast(`You already have ${cap} square${cap === 1 ? '' : 's'}, the most allowed. Tap one of yours to give it back.`, 'muted', 4500); return; }
     buzz(15);
     try {
       if (q) {
@@ -692,7 +699,7 @@
       }
     } catch (e) {
       if (e.code === '23505' || /duplicate/i.test(e.message)) toast('Someone grabbed that square first!', 'bad');
-      else if (e.code === '42501' || /row-level security/i.test(e.message)) toast('🔒 The board is locked.', 'bad');
+      else if (e.code === '42501' || /row-level security/i.test(e.message)) toast(S.room.sq_max ? '🔒 That’s over the square limit, or the board is locked.' : '🔒 The board is locked.', 'bad');
       else if (/pc_squares|relation|schema cache/i.test(e.message)) toast('⚠️ Squares needs the updated database setup. Ask the host to re-run it (playcall/setup.html).', 'bad', 7000);
       else toast('⚠️ ' + esc(e.message), 'bad');
       refresh();
@@ -958,6 +965,20 @@
         hostDo(() => patchRoom({ sq_phase: 'locked', sq_cols: Squares.shuffledDigits(), sq_rows: Squares.shuffledDigits(), sq_wins: [] }))
           .then(() => { if (S.room && !S.room.sq_cols) toast('⚠️ Squares needs the updated database setup (playcall/setup.html).', 'bad', 7000); });
         break;
+      case 'sqmax': {
+        let v = el.dataset.v;
+        if (v === 'even') v = Math.max(1, Math.floor(100 / Math.max(1, playersList().length)));
+        else if (v === 'ask') { const ans = prompt('Max squares per player (1–100):', S.room.sq_max || 10); if (ans == null) break; v = parseInt(ans, 10); if (!(v >= 1 && v <= 100)) { toast('Enter a number from 1 to 100.', 'bad'); break; } }
+        else v = null;
+        hostDo(() => patchRoom({ sq_max: v })).then(() => {
+          if (v && S.room.sq_max !== v) toast('⚠️ The square limit needs the updated database setup (playcall/setup.html).', 'bad', 7000);
+          else {
+            const over = v ? playersList().filter((p) => Object.values(S.squares).filter((q) => q.player === p.id).length > v) : [];
+            toast(v ? `Max ${v} squares per player.` + (over.length ? ` ${over.map((p) => p.name).join(', ')} already ${over.length === 1 ? 'has' : 'have'} more; they can keep them but can’t add more.` : '') : 'No square limit.', '', 5000);
+          }
+        });
+        break;
+      }
       case 'sqreopen':
         if (!confirm('Re-open the board? The drawn numbers are cleared and people can change squares again.')) break;
         hostDo(() => patchRoom({ sq_phase: 'open', sq_cols: null, sq_rows: null, sq_wins: [] }));

@@ -151,11 +151,22 @@ language sql stable security definer set search_path = public as $$
   select exists (select 1 from pc_rooms where code = r and coalesce(sq_phase, 'open') = 'open');
 $$;
 
+-- Optional cap on squares per player (null = no limit).
+alter table pc_rooms add column if not exists sq_max int check (sq_max between 1 and 100);
+create or replace function pc_square_ok(r text, p uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from pc_rooms
+    where code = r and coalesce(sq_phase, 'open') = 'open'
+      and (sq_max is null or (select count(*) from pc_squares where room = r and player = p) < sq_max)
+  );
+$$;
+
 alter table pc_squares enable row level security;
 drop policy if exists pc_squares_read on pc_squares;
 create policy pc_squares_read on pc_squares for select to anon, authenticated using (true);
 drop policy if exists pc_squares_insert on pc_squares;
-create policy pc_squares_insert on pc_squares for insert to anon, authenticated with check (pc_squares_open(room));
+create policy pc_squares_insert on pc_squares for insert to anon, authenticated with check (pc_square_ok(room, player));
 drop policy if exists pc_squares_delete on pc_squares;
 create policy pc_squares_delete on pc_squares for delete to anon, authenticated using (pc_squares_open(room));
 alter table pc_squares replica identity full;

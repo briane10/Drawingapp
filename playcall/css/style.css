@@ -339,3 +339,4 @@ b.big { font-size: 1.6rem; color: var(--accent); letter-spacing: .14em; }
 .sq-score { grid-column: 1; font-size: .85rem; color: var(--muted); }
 .sq-win { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-weight: 800; }
 .sq-host { margin-top: 12px; }
+.sq-cap { display: grid; gap: 8px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }

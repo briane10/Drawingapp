@@ -180,6 +180,7 @@
         const r = db.pc_rooms[room];
         if (!r || (r.sq_phase || 'open') !== 'open') throw Object.assign(new Error('new row violates row-level security policy'), { code: '42501' });
         if (db.pc_squares[room + '|' + idx]) throw Object.assign(new Error('duplicate key value'), { code: '23505' });
+        if (r.sq_max && Object.values(db.pc_squares).filter((q) => q.room === room && q.player === player).length >= r.sq_max) throw Object.assign(new Error('new row violates row-level security policy'), { code: '42501' });
         put('pc_squares', { room, idx, player, created_at: new Date().toISOString() }, 'INSERT');
       },
       async releaseSquare(room, idx, player) {
