@@ -408,13 +408,31 @@
     let pending = (room.pending || []).slice();
     const snaps = plays.filter((p) => p.kind !== 'ignore' && p.wall != null);
     let delay = estimateDelay(room.lock_log || [], snaps);
-    if (delay == null && pending.length && now - pending[0].t > 240e3) {
-      // Still unsure after 4 minutes: go with the best guess so results don't stall.
+    if (delay == null && pending.length && now - pending[0].t > 150e3) {
+      // Still unsure after a couple of minutes: go with the best guess so results don't stall.
       delay = estimateDelay(room.lock_log || [], snaps, { loose: true });
-      if (delay == null) delay = room.delay != null ? room.delay : 30e3;
     }
     if (delay != null && delay !== room.delay) out.patch.delay = Math.round(delay);
     let lastSeq = room.last_seq;
+
+    // Too few locks to learn the TV delay yet: the host tapped LOCK when they SAW the snap, which is after
+    // it really happened, so match each old-enough lock to the latest snap shortly before the tap.
+    while (delay == null && pending.length && now - pending[0].t > 150e3) {
+      const lock = pending[0];
+      let pick = null;
+      for (const sn of snaps) {
+        if (sn.seq <= lastSeq) continue;
+        if (sn.wall <= lock.t + 5e3 && sn.wall >= lock.t - 75e3 && (!pick || sn.wall > pick.wall)) pick = sn;
+      }
+      pending.shift();
+      if (pick) {
+        lastSeq = pick.seq;
+        if (pick.kind === 'void') out.results.push({ kind: 'play', round: lock.r, void: true, text: pick.text, why: pick.why, anim: pick.anim || null });
+        else out.results.push({ kind: 'play', round: lock.r, play_type: pick.playType, dir: pick.dir, dist: pick.dist, yards: pick.yards, text: pick.text, anim: pick.anim || null });
+      } else {
+        out.results.push({ kind: 'play', round: lock.r, void: true, text: 'No snap found for this lock in the ESPN feed.' });
+      }
+    }
 
     while (pending.length && delay != null) {
       const lock = pending[0];
