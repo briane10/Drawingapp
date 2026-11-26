@@ -31,9 +31,9 @@ Built for **iPad + Apple Pencil**, fun for ages 10 and up.
 
 The app is a web app you add to your Home Screen. It opens full-screen and works offline.
 
-1. **Host it** (one time). In GitHub: *Settings → Pages → Build and deployment → Source: GitHub Actions*.
-   Then merge this branch into `main`. The included workflow publishes the app to
-   `https://<your-username>.github.io/<repo-name>/`.
+1. **Host it** (one time). Open the repository's **Settings → Pages** (the repo's settings, not your account's).
+   Under *Build and deployment*, choose **Source: Deploy from a branch**, pick this branch and the **/ (root)** folder,
+   then **Save**. After a minute the app is live at `https://<your-username>.github.io/<repo-name>/`.
 2. On the iPad, open that link in **Safari**.
 3. Tap **Share ⬆︎ → Add to Home Screen → Add**.
 4. Open **Sketch Quest** from your Home Screen.
