@@ -492,7 +492,7 @@
       ${pend.length ? `<div class="sub">Waiting for results</div><ul class="plist">${pend.map((p) => `<li>Play #${p.r} <span class="small muted">locked ${new Date(p.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span>
         <button class="btn small" data-act="enter" data-round="${p.r}">Enter result</button></li>`).join('')}</ul>` : ''}
       <div class="sub">Red zone</div>
-      ${r.rz_phase === 'none' ? '<button class="btn small" data-act="rzopen">🚨 Start a red zone call</button> <span class="small muted">Starts by itself when the feed shows the red zone.</span>'
+      ${r.rz_phase === 'none' ? '<button class="btn small" data-act="rzopen">🚨 Start the red zone mini-game</button> <span class="small muted">Open it when a team gets inside the 20. It scores itself when the drive ends.</span>'
         : `<div class="row wrap">${r.rz_phase === 'open' ? '<button class="btn small" data-act="rzlock">🔒 Lock it</button>' : ''}
           <span class="small">Drive ended in:</span><button class="btn small" data-act="rzend" data-v="td">TD</button><button class="btn small" data-act="rzend" data-v="fg">FG</button><button class="btn small" data-act="rzend" data-v="none">Nothing</button>
           <button class="btn small ghost" data-act="rzcancel">Cancel</button></div>`}
@@ -758,7 +758,7 @@
       case 'fix': showResultEntry(el.dataset.kind, parseInt(el.dataset.round, 10)); break;
       case 'entry': S.entry[el.dataset.f] = el.dataset.v; if (el.dataset.f === 'play_type' && el.dataset.v === 'void') { S.entry.dir = null; S.entry.dist = null; } renderEntry(); break;
       case 'entrysave': saveEntry(); break;
-      case 'rzopen': hostDo(() => patchRoom({ rz_phase: 'open', rz_round: (S.room.rz_round || 0) + 1, rz_drive: null, rz_label: 'Called by the host' })); break;
+      case 'rzopen': hostDo(() => patchRoom({ rz_phase: 'open', rz_round: (S.room.rz_round || 0) + 1, rz_drive: null, rz_label: (S.room.status && S.room.status.poss ? S.room.status.poss + ' in the red zone' : 'Red zone') })); break;
       case 'rzlock': hostDo(() => patchRoom({ rz_phase: 'locked' })); break;
       case 'rzend':
         hostDo(async () => {

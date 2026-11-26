@@ -297,15 +297,25 @@
       status.recent = recent;
     }
     
-    // Red zone: trust the scoreboard flag, fall back to the last snap's field position.
+    // Red zone: the current drive must have at least one snap, and the ball must really be inside the 20
+    // for the team on that drive. (ESPN's isRedZone flag can stay on after a field goal or score.)
     let rz = null;
-    if (currentId && driveInfo[currentId] && !driveInfo[currentId].done) {
-      const snaps = plays.filter((p) => p.driveId === currentId && p.kind !== 'ignore');
+    const cur = currentId && driveInfo[currentId];
+    if (cur && !cur.done) {
+      const snaps = plays.filter((p) => p.driveId === currentId && (p.kind === 'play' || p.kind === 'void'));
       const last = snaps[snaps.length - 1];
-      const byPos = last && last.endYTE != null && last.endYTE > 0 && last.endYTE <= 20 && !last.scoring && !last.turnover;
-      if ((status && status.redZone) || byPos) {
-        const team = (status && status.poss) || driveInfo[currentId].team;
-        rz = { driveId: currentId, team, label: team ? team + ' in the red zone' + (status && status.down ? ' · ' + status.down : '') : 'Red zone' };
+      if (last && !last.scoring && !last.turnover) {
+        const byPlay = last.endYTE != null && last.endYTE > 0 && last.endYTE <= 20;
+        // The scoreboard is often a play ahead; use it only if it agrees on who has the ball.
+        let bySb = false;
+        if (status && status.los != null && status.possHome != null && status.poss && status.poss === cur.team) {
+          const yte = status.possHome ? 100 - status.los : status.los;
+          bySb = yte > 0 && yte <= 20;
+        }
+        if (byPlay || bySb) {
+          const team = cur.team || (status && status.poss) || '';
+          rz = { driveId: currentId, team, label: team ? team + ' in the red zone' : 'Red zone' };
+        }
       }
     }
     return { plays, drives: driveInfo, currentId, redZone: rz, status };
@@ -439,13 +449,10 @@
       out.patch.rz_phase = 'none';
       out.patch.rz_done = room.rz_drive;
       out.patch.rz_drive = null;
-    } else if (rzPhase === 'none' && feed.redZone && feed.redZone.driveId !== room.rz_done) {
-      out.patch.rz_phase = 'open';
-      out.patch.rz_round = (room.rz_round || 0) + 1;
-      out.patch.rz_drive = feed.redZone.driveId;
-      out.patch.rz_label = feed.redZone.label;
-    } else if (rzPhase !== 'none' && !room.rz_drive && feed.redZone && feed.redZone.driveId !== room.rz_done) {
-      out.patch.rz_drive = feed.redZone.driveId; // host opened it by hand; attach it to the drive
+    } else if (rzPhase !== 'none' && !room.rz_drive && feed.currentId && feed.drives[feed.currentId] && !feed.drives[feed.currentId].done
+      && feed.currentId !== room.rz_done) {
+      // The host opened a red zone call: tie it to the drive in progress so it scores itself when the drive ends.
+      out.patch.rz_drive = feed.currentId;
     }
     return out;
   }
