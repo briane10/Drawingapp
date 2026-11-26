@@ -785,6 +785,23 @@
     }
   }
 
+  /** What the host is about to lock: the down & distance of the coming snap (and their own call). */
+  function lockLabel() {
+    const r = S.room;
+    const st = shownStatus();
+    const live = st && st.state === 'in';
+    const keep = st && !st.downShort && live && S.lastDD && S.lastDD.id === st.id ? S.lastDD : null;
+    const down = st && (st.downShort || (keep && keep.down));
+    const spot = st && (st.downShort ? st.ballOn : keep ? keep.ballOn : '');
+    const bits = [];
+    if (live && down) bits.push((st.poss ? st.poss + ' ball · ' : '') + down + (spot ? ' at ' + spot : ''));
+    else bits.push('Play #' + r.round);
+    const mine = myPick('play', r.round);
+    if (mine && mine.play_type) bits.push('your call: ' + pickLine(mine));
+    if ((r.pending || []).length) bits.push('last play waiting for result');
+    return bits.join(' · ') + ' · tap at the snap';
+  }
+
   function renderGame() {
     const r = S.room;
     const tab = session.tab === 'squares' ? 'squares' : 'plays';
@@ -820,7 +837,7 @@
           ${!isHost() ? `<p class="center small muted"><button class="link" data-act="rules">Rules</button> · <button class="link" data-act="takehost">Make this device the host</button></p>` : ''}
         </div>
       </div>`}
-      ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>${(r.pending || []).length ? 'locked · waiting for the result · tap again at the next snap' : 'tap at the snap'}</small></button></div>` : ''}`;
+      ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>${esc(lockLabel())}</small></button></div>` : ''}`;
     document.body.classList.toggle('has-lockbar', isHost());
     const slot = document.getElementById(wideMQ.matches ? 'fieldSlotWide' : 'fieldSlotNarrow');
     if (slot) { slot.appendChild(field.el); field.update(shownStatus()); }
