@@ -13,6 +13,7 @@
     '#4a6b3a', '#9fb7c9', '#5b7a99', '#3c4a6b', '#6b5b7a', '#d98c8c', '#f4d9b0', '#2b2b30'];
 
   // ---------- drawing guides ----------
+  const DOT_COLORS = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#ec407a', '#00897b', '#6d4c41', '#3949ab', '#c0ca33'];
   function strokePath(ctx, p) {
     ctx.beginPath();
     p.pts.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])));
@@ -50,9 +51,16 @@
         ctx.restore();
       });
     }
-    if (o.dots) (g.dots || []).forEach((d) => {
-      ctx.save(); ctx.fillStyle = '#ff9f43'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(d[0], d[1], 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
+    if (o.dots) (g.dots || []).forEach((d, i) => {
+      // paired dots (start + end of one line) share a color and a number
+      const k = g.dotPairs ? i >> 1 : i;
+      const col = DOT_COLORS[k % DOT_COLORS.length];
+      ctx.save();
+      ctx.fillStyle = col; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(d[0], d[1], 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = '800 17px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(k + 1), d[0], d[1] + 1);
+      ctx.restore();
     });
   }
 

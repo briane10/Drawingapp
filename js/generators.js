@@ -112,7 +112,7 @@
   const G = {};
 
   G.lines = function (r, p) {
-    const n = p.n || 6, out = { paths: [], dots: [] };
+    const n = p.n || 6, out = { paths: [], dots: [], dotPairs: true };
     const area = 900;
     for (let i = 0; i < n; i++) {
       let ang;
@@ -133,7 +133,7 @@
   };
 
   G.curves = function (r, p) {
-    const n = p.n || 4, out = { paths: [], dots: [] };
+    const n = p.n || 4, out = { paths: [], dots: [], dotPairs: true };
     for (let i = 0; i < n; i++) {
       const y = (i + 0.5) * 160;
       const a = [r.range(0, 120), y + r.range(-30, 30)], d = [r.range(680, 800), y + r.range(-30, 30)];

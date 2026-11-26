@@ -69,7 +69,7 @@
 <li><b>Go</b>: put the pencil down and draw in one smooth stroke, eyes on the end dot.</li>
 </ol>
 <p class="tip">💡 With Apple Pencil you can hover right over the glass — perfect for ghosting!</p>`,
-        ex: { mode: 'ghost', gen: 'lines', params: { n: 6 }, rounds: 3, tol: [7, 26], say: 'Connect each pair of dots with one straight line.' },
+        ex: { mode: 'ghost', gen: 'lines', params: { n: 6 }, rounds: 3, tol: [7, 26], say: 'Connect the two dots that have the <b>same color and number</b> (1 to 1, 2 to 2…) with one straight line.' },
       },
       {
         id: 'w1-curves', title: 'Swoopy Curves', emoji: '〰️', skill: 'line', xp: 70,

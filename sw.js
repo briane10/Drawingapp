@@ -1,5 +1,5 @@
 /* Offline support: cache the app shell, serve cache-first, refresh in the background. */
-const CACHE = 'sketchquest-v2';
+const CACHE = 'sketchquest-v3';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/util.js', 'js/generators.js', 'js/scoring.js', 'js/store.js', 'js/ui.js', 'js/canvas.js',
