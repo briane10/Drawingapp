@@ -34,6 +34,8 @@
     draft: {}, // my in-progress pick per round, for instant feedback
     rzDraft: {},
     rzSel: {},
+    earlyNext: null,
+    resultSeenAt: {},
     squares: {},
     rzEdit: null,
     games: null,
@@ -93,7 +95,7 @@
     } else if (table === 'pc_picks') {
       if (type === 'DELETE') { if (old) delete S.picks[pickKey(old)]; } else if (row) S.picks[pickKey(row)] = row;
     } else if (table === 'pc_results') {
-      if (row) { S.results[resKey(row)] = row; announceResult(row); }
+      if (row) { if (!S.results[resKey(row)]) S.resultSeenAt[resKey(row)] = Date.now(); S.results[resKey(row)] = row; announceResult(row); }
     } else if (table === 'pc_squares') {
       if (type === 'DELETE') { if (old && S.squares[old.idx] && (!old.player || S.squares[old.idx].player === old.player)) delete S.squares[old.idx]; } else if (row) S.squares[row.idx] = row;
     }
@@ -515,6 +517,21 @@
         ${isHost() ? '<p class="small muted">Watching another game? Tap <b>Change</b> in Host controls. Scores carry over.</p>' : ''}</section>`;
     }
     const round = r.round;
+    // Between LOCK and the result: show the locked call and wait (unless this player chose to call the next one early).
+    const pend = r.pending || [];
+    const waiting = pend.length ? pend[pend.length - 1] : null;
+    if (waiting && S.earlyNext !== round && !myPick('play', round)) {
+      const pk = myPick('play', waiting.r);
+      const older = pend.length > 1 ? `<p class="small muted">Also waiting on ${pend.length - 1} earlier play${pend.length > 2 ? 's' : ''}.</p>` : '';
+      return `<section class="card board locked">
+        <div class="board-head">${situationHead(waiting.r)}</div>
+        <div class="locked-box"><div class="locked-title">🔒 Locked at the snap</div>
+          <div class="locked-call">${pk ? 'Your call: <b>' + esc(pickLine(pk)) + '</b>' : '<span class="muted">You didn’t make a call on this one.</span>'}</div>
+          <div class="locked-wait"><span class="spin"></span> Waiting for the result…</div></div>
+        ${older}
+        <p class="center small"><button class="link" data-act="earlynext">Next snap coming? Call it now</button></p>
+      </section>`;
+    }
     const saved = myPick('play', round) || {};
     const d = Object.assign({}, saved, S.draft[round] || {});
     const btn = (field, val, label, icon) => `<button class="choice ${d[field] === val ? 'on' : ''}" data-act="pick" data-f="${field}" data-v="${val}">${icon ? `<span class="ic">${icon}</span>` : ''}${label}</button>`;
@@ -568,6 +585,14 @@
       const pk = myPick('play', p.r);
       return `<span class="chip">⏳ #${p.r} waiting for ESPN · you: ${esc(pk ? pickLine(pk) : 'no call')}</span>`;
     }).join('')}</div>`;
+  }
+
+  /** True for ~2 minutes after the newest play result arrives (shown above the fresh pick board). */
+  function freshResult() {
+    const res = Object.values(S.results).filter((x) => x.kind === 'play').sort((a, b) => b.round - a.round)[0];
+    if (!res) return false;
+    const at = S.resultSeenAt[resKey(res)] || (res.created_at ? Date.parse(res.created_at) : 0) || 0;
+    return Date.now() - at < 120e3;
   }
 
   function lastResultCard() {
@@ -783,9 +808,9 @@
       <div class="layout">
         <div class="col">
           ${rzCard()}
+          ${freshResult() ? lastResultCard() : ''}
           ${pickBoard()}
-          ${pendingStrip()}
-          ${lastResultCard()}
+          ${freshResult() ? '' : lastResultCard()}
         </div>
         <div class="col">
           <div id="fieldSlotWide" class="fieldslot"></div>
@@ -795,7 +820,7 @@
           ${!isHost() ? `<p class="center small muted"><button class="link" data-act="rules">Rules</button> · <button class="link" data-act="takehost">Make this device the host</button></p>` : ''}
         </div>
       </div>`}
-      ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>tap at the snap · play #${r.round}</small></button></div>` : ''}`;
+      ${isHost() ? `<div class="lockbar"><button data-act="lock">🔒 LOCK <small>${(r.pending || []).length ? 'locked · waiting for the result · tap again at the next snap' : 'tap at the snap'}</small></button></div>` : ''}`;
     document.body.classList.toggle('has-lockbar', isHost());
     const slot = document.getElementById(wideMQ.matches ? 'fieldSlotWide' : 'fieldSlotNarrow');
     if (slot) { slot.appendChild(field.el); field.update(shownStatus()); }
@@ -1012,6 +1037,7 @@
       case 'lock': lockNow(); break;
       case 'share': share(); break;
       case 'rules': showRules(); break;
+      case 'earlynext': S.earlyNext = S.room.round; render(); break;
       case 'tvsync': showTvSync(); break;
       case 'tvsyncnow': {
         const st = liveStatus();
