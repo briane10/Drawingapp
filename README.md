@@ -62,3 +62,35 @@ python3 -m http.server 8000
 | `js/exercise.js` | Lesson runner for every exercise type, including Boss Mode |
 | `js/store.js` | Progress, XP, badges, streaks (localStorage), drawings and saved projects (IndexedDB) |
 | `js/views.js`, `js/app.js` | Screens and navigation |
+
+---
+
+# 🤝 Duo Quest (in `duo/`)
+
+A team adventure for **a kid (about 10) and a grown-up playing together on one iPad**, sitting side by side
+(kid on the left, grown-up on the right). Every challenge is built so you **can't win alone**:
+
+| Challenge | How it forces teamwork |
+| --- | --- |
+| ✍️ **Tandem Trace** (drawing accuracy + speed) | You both trace your own path at the same time. Get too far ahead and your pen freezes until your partner catches up. |
+| 🗣️ **Describe & Draw** | One player peeks at a secret picture and describes it with words only; the other draws it blind. Then swap. Scored on how well the drawing matches. |
+| ❓ **Tag-Team Trivia** | Each player has their own answer buttons; an answer only counts when you both pick the same one. *Combo* questions give each of you half the facts, and you combine the numbers. |
+| 🧩 **Riddle Relay** | Take turns as Reader and Typer, with hints if you're stuck. |
+| 🔠 **Team Crossword** | The kid gets easy clues, the grown-up gets tricky ones, and the words cross, so each answer helps the other. A new puzzle every time. |
+| 🕹️ **Split-Control Maze** | One character, two drivers: the kid moves ⬆️⬇️, the grown-up moves ⬅️➡️. Collect the keys. Harder levels swap controls and add fog. |
+| 🔐 **Escape Rooms** (Wizard's Study, Pirate Ship, Space Station) | Secret clue cards that only the kid (🧒) or the grown-up (🧑) may look at. Every lock needs both halves. The codes change each game. |
+
+The **Adventure map** has 4 worlds (Starter Woods → Puzzle Island → Star Base → Champions' Tower) of increasing
+difficulty, with ⭐ stars to collect. **Free play** lets you pick any challenge and difficulty.
+
+Once GitHub Pages is on (see above), it's live at `https://<your-username>.github.io/<repo-name>/duo/`.
+Add it to the iPad Home Screen the same way. Locally: run `python3 -m http.server 8000`, then open http://localhost:8000/duo/.
+
+| File | What it does |
+| --- | --- |
+| `duo/js/app.js` | Team setup, adventure map, free play, challenge runner, results |
+| `duo/js/draw.js` | Tandem Trace and Describe & Draw (including drawing-match scoring) |
+| `duo/js/puzzles.js` | Tag-Team Trivia, Riddle Relay, Team Crossword (with a crossword generator), Split-Control Maze |
+| `duo/js/escape.js` | Escape rooms, with codes randomized every game |
+| `duo/js/data.js` | Trivia, number facts, riddles and crossword word banks |
+| `duo/js/util.js` | Sound, confetti, saved progress, modals |
