@@ -344,9 +344,14 @@
     const dd = st.downShort
       ? `<div class="ddrow"><span class="down">${esc(st.downShort)}</span>${st.ballOn ? `<span class="spot">Ball on <b>${esc(st.ballOn)}</b></span>` : ''}${st.redZone ? '<span class="rzpill">🚨 RED ZONE</span>' : ''}</div>`
       : live ? '<div class="ddrow"><span class="spot muted">Between plays</span></div>' : '';
-    const ticker = st.lastPlay
-      ? `<div class="ticker" aria-label="Last play"><span class="tk-label">LAST PLAY</span><div class="tk-viewport"><span class="tk-text" style="--len:${Math.max(8, Math.round(st.lastPlay.length / 6))}s">${esc(st.lastPlay)}</span></div></div>`
-      : '';
+    let ticker = '';
+    if (st.lastPlay) {
+      // Keep the scroll position steady across redraws by offsetting from when this text first appeared.
+      if (S.tickerText !== st.lastPlay) { S.tickerText = st.lastPlay; S.tickerStart = Date.now(); }
+      const len = Math.max(8, Math.round(st.lastPlay.length / 6));
+      const delay = -(((Date.now() - S.tickerStart) / 1000) % len);
+      ticker = `<div class="ticker" aria-label="Last play"><span class="tk-label">LAST PLAY</span><div class="tk-viewport"><span class="tk-text" style="--len:${len}s;animation-delay:${delay.toFixed(2)}s">${esc(st.lastPlay)}</span></div></div>`;
+    }
     return `<div class="bug ${st.redZone ? 'rz' : ''}">
         <div class="bugrow">${team(st.away, 'away')}<div class="mid">${center}</div>${team(st.home, 'home')}</div>
         ${dd}${ticker}
