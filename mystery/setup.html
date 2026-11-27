@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marrowby Manor setup</title>
+  <style>
+    body { margin: 0; font: 17px/1.45 -apple-system, system-ui, sans-serif; background: #140d1c; color: #f3ead8; padding: 16px; }
+    h1 { font-size: 1.4rem; margin: 4px 0 12px; }
+    button { width: 100%; font: inherit; font-weight: 800; font-size: 1.2rem; padding: 16px; border: 0; border-radius: 14px; background: #ffd23f; color: #1d1600; }
+    button.done { background: #30a46c; }
+    textarea { width: 100%; height: 45vh; margin-top: 14px; font: 12px/1.35 ui-monospace, Menlo, monospace; background: #0b0710; color: #e8dcc4; border: 1px solid #4a3560; border-radius: 10px; padding: 10px; box-sizing: border-box; }
+    ol { padding-left: 20px; }
+    .muted { color: #b7a6c9; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <h1>🕰️ Marrowby Manor database setup</h1>
+  <button id="copy">📋 Copy the setup code</button>
+  <ol>
+    <li>Tap the button above.</li>
+    <li>In Supabase → <b>SQL Editor</b>, tap inside the editor, then tap again (or press and hold) and choose <b>Paste</b>.</li>
+    <li>Tap <b>Run</b>. It should say <i>Success. No rows returned</i>.</li>
+  </ol>
+  <p class="muted">If the copy button doesn't work, press and hold in the box below → Select All → Copy.</p>
+  <textarea id="sql" readonly>Loading…</textarea>
+  <script>
+    const box = document.getElementById('sql');
+    const btn = document.getElementById('copy');
+    fetch('supabase.sql', { cache: 'no-store' }).then((r) => r.text()).then((t) => { box.value = t; });
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(box.value);
+      } catch (e) {
+        box.focus(); box.select(); box.setSelectionRange(0, box.value.length);
+        document.execCommand('copy');
+      }
+      btn.textContent = '✅ Copied! Now paste it in Supabase';
+      btn.classList.add('done');
+    });
+  </script>
+</body>
+</html>

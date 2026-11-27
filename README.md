@@ -1,6 +1,8 @@
 # ✏️ Sketch Quest
 
 > 🏈 **Also in this repo: [Play Caller](playcall/)**, a live play-calling party game for NFL and college football. See [`playcall/README.md`](playcall/README.md).
+>
+> 🕰️ **And: [Murder at Marrowby Manor](mystery/)**, a murder mystery party game for 3–7 detectives (TV board + phones). See [`mystery/README.md`](mystery/README.md).
 
 A drawing course that takes you from your **first wobbly line to realistic, full-color animal drawings**.
 Built for **iPad + Apple Pencil**, fun for ages 10 and up.
