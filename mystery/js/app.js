@@ -89,6 +89,7 @@
     if (/^t\d$/.test(a)) return Object.values(S.players).filter((p) => 't' + (p.team || 1) === a);
     return S.players[a] ? [S.players[a]] : [];
   }
+  function face(id, mood) { return window.Portraits && window.Portraits.has(id) ? window.Portraits.svg(id, mood) : (E.person(C(), id) || {}).emoji || '❓'; }
   function personChip(id) { const p = E.person(C(), id); return p ? p.emoji + ' ' + esc(p.short) : esc(id); }
   function roomChip(id) { const r = E.item(C(), 'room', id); return r ? r.emoji + ' ' + esc(r.name) : esc(id); }
 
@@ -313,7 +314,27 @@
   // =====================================================================
   // RENDER
   // =====================================================================
+  // The animated story keeps playing while live updates arrive, so don't redraw over it.
+  function storyKey() {
+    if (!isBoard() || S.view !== 'game' || !S.room) return null;
+    if (S.room.phase === 'intro' && !ytId(videos().intro)) return 'intro';
+    if (S.room.phase === 'reveal' && (S.room.reveal_step || 0) === 1) { const end = R().ending; if (!ytId(videos()['reveal_' + end])) return 'reveal_' + end + '_' + (S.room.game || 1); }
+    return null;
+  }
   function render() {
+    const sk = storyKey();
+    if (sk && S.story && S.story.key === sk && document.body.contains(S.story.el)) { announce(); return; }
+    if (S.story && (!sk || S.story.key !== sk)) { S.story.ctl.destroy(); S.story = null; }
+    renderInner();
+    const slot = document.getElementById('story-slot');
+    if (sk && slot && window.Story) {
+      const cards = window.STORY_CARDS[C().id];
+      const list = sk === 'intro' ? cards.intro : cards.reveal[R().ending];
+      const ctl = window.Story.mount(slot, list, { onEnd: () => { const b = document.querySelector('.story-after .gold'); if (b) b.classList.add('glow'); } });
+      S.story = { key: sk, el: slot, ctl };
+    }
+  }
+  function renderInner() {
     document.body.className = S.view === 'game' ? (isBoard() ? 'is-board' : 'is-phone') : '';
     if (S.view === 'home') return renderHome();
     if (S.view === 'join') return renderJoin();
@@ -468,19 +489,22 @@
   function lineup() {
     const r = R();
     return `<div class="lineup">${C().suspects.concat(C().witnesses).map((s) => `<div class="suspect ${s.id === 'pembrook' ? 'witness' : ''}">
-      <div class="face">${s.emoji}</div><div class="nm">${esc(s.short)}</div><div class="rl">${esc(s.role)}</div>
+      <div class="face">${face(s.id)}</div><div class="nm">${esc(s.short)}</div><div class="rl">${esc(s.role)}</div>
       ${r && r.caught[s.id] ? `<div class="caught">⚡ ${r.caught[s.id]} lie${r.caught[s.id] > 1 ? 's' : ''} caught</div>` : ''}
     </div>`).join('')}</div>`;
   }
 
   function boardIntro() {
     const vid = videoEmbed('intro');
+    if (!vid) {
+      return `<div class="intro"><div class="story-slot" id="story-slot"></div>
+        <div class="story-after"><button class="btn gold" data-act="begin">🔍 Begin the investigation</button></div></div>`;
+    }
     return `<div class="intro">
       ${vid}
-      <div class="story ${vid ? 'collapsed' : ''}">${C().intro.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+      <div class="story collapsed">${C().intro.map((p) => `<p>${esc(p)}</p>`).join('')}</div>
       ${lineup()}
       <div class="controls">
-        <button class="btn ghost" data-act="readintro">🔊 Read aloud</button>
         <button class="btn gold big" data-act="begin">🔍 Begin the investigation</button>
       </div>
     </div>`;
@@ -553,7 +577,7 @@
     if (!acc) return `<div class="acc" style="--c:${actorColor(a)}"><h3>${esc(actorName(a))}</h3><p class="muted">No accusation</p></div>`;
     const sus = E.person(C(), acc.suspect);
     return `<div class="acc" style="--c:${actorColor(a)}"><h3>${esc(actorName(a))}</h3>
-      <div class="accface">${sus ? sus.emoji : '❓'}</div><div class="accwho">${sus ? esc(sus.short) : '?'}</div>
+      <div class="accface">${sus ? face(sus.id) : '❓'}</div><div class="accwho">${sus ? esc(sus.short) : '?'}</div>
       <div class="acclines">${['method', 'room', 'motive'].map((k) => esc(E.cardName(C(), k + ':' + acc[k]))).join('<br>')}</div>
       ${acc.atRound < r.rounds ? `<div class="early">⏱️ locked in at round ${acc.atRound}</div>` : ''}</div>`;
   }
@@ -573,6 +597,10 @@
     }
     if (step === 1) {
       const vid = videoEmbed('reveal_' + ending);
+      if (!vid) {
+        return `<div class="reveal"><div class="story-slot" id="story-slot"></div>
+          <div class="story-after"><button class="btn ghost" data-act="revstep" data-v="0">⬅ Accusations</button><button class="btn gold" data-act="revstep" data-v="2">🏆 Scores</button></div></div>`;
+      }
       return `<div class="reveal">
         ${vid}
         <div class="story ${vid ? 'collapsed' : ''}">${C().reveal[ending].map((p, i) => `<p class="${i === 0 ? 'headline' : ''}">${esc(p)}</p>`).join('')}</div>
@@ -586,7 +614,7 @@
     const culprit = E.person(C(), sol.suspect);
     return `<div class="reveal">
       <div class="solution">
-        <div class="sface">${culprit.emoji}</div>
+        <div class="sface">${face(culprit.id, 'angry')}</div>
         <div><div class="sname">${esc(culprit.name)}</div>
         <div class="slines">${E.cardName(C(), 'method:' + sol.method)} · ${E.cardName(C(), 'room:' + sol.room)} · ${E.cardName(C(), 'motive:' + sol.motive)}</div></div>
       </div>
@@ -675,7 +703,7 @@
       const lie = E.lieOf(st, ending);
       const obj = s.objected[it.id];
       const hint = S.room.difficulty === 'easy' && !obj && lie && lie.by.some((x) => s.clues.has(x));
-      return `<div class="ncard stmt ${obj === 'ok' ? 'broken' : ''}"><div class="nh">${per.emoji} <b>${esc(per.short)}</b> says:${by}</div>
+      return `<div class="ncard stmt ${obj === 'ok' ? 'broken' : ''}"><div class="nh"><span class="mini-pp">${face(it.who, obj === 'ok' ? 'gasp' : null)}</span> <b>${esc(per.short)}</b> says:${by}</div>
         <p class="quote">“${esc(E.pick(st.text, ending))}”</p>
         ${obj === 'ok' ? `<div class="stamp">LIE CAUGHT</div><p class="truth">“${esc(lie.truth)}”</p>` : ''}
         ${obj === 'bad' ? '<p class="muted small">✗ Your objection didn’t hold up.</p>' : ''}
@@ -715,7 +743,7 @@
       <h3 class="sec">🔍 Search a room <span class="left">${left.search} left</span></h3>
       <div class="grid4">${c.rooms.map((rm) => { const done = !roomHasMore(s, rm.id); return `<button class="tbtn ${done ? 'done' : ''}" data-act="search" data-v="${rm.id}" ${left.search && !S.busy && !done ? '' : 'disabled'}><span>${rm.emoji}</span>${esc(rm.name)}${done ? '<i>✓ for now</i>' : ''}</button>`; }).join('')}</div>
       <h3 class="sec">🗣️ Question someone <span class="left">${left.question} left</span></h3>
-      <div class="grid4">${c.suspects.concat(c.witnesses).map((p) => { const done = !personHasMore(s, p.id); return `<button class="tbtn ${done ? 'done' : ''}" data-act="question" data-v="${p.id}" ${left.question && !S.busy && !done ? '' : 'disabled'}><span>${p.emoji}</span>${esc(p.short)}${done ? '<i>✓ for now</i>' : ''}</button>`; }).join('')}</div>
+      <div class="grid4">${c.suspects.concat(c.witnesses).map((p) => { const done = !personHasMore(s, p.id); return `<button class="tbtn ${done ? 'done' : ''}" data-act="question" data-v="${p.id}" ${left.question && !S.busy && !done ? '' : 'disabled'}>${face(p.id)}${esc(p.short)}${done ? '<i>✓ for now</i>' : ''}</button>`; }).join('')}</div>
       <h3 class="sec">💭 Test a theory <span class="left">${left.theory} left</span></h3>
       <p class="muted small">Name a suspect, method, room and motive. The next detective who holds one of those Case Cards must secretly show you one.</p>
       <button class="btn wide" data-act="theory" ${left.theory && !S.busy ? '' : 'disabled'}>💭 Make a theory</button>
@@ -799,7 +827,7 @@
     if (s.accuse) {
       const acc = s.accuse;
       return `<div class="card center"><h2>🔒 Accusation locked</h2>
-        <div class="accface">${E.person(c, acc.suspect).emoji}</div>
+        <div class="accface">${face(acc.suspect)}</div>
         <p><b>${esc(E.person(c, acc.suspect).name)}</b><br>${['method', 'room', 'motive'].map((k) => esc(E.cardName(c, k + ':' + acc[k]))).join('<br>')}</p>
         <p class="muted small">${acc.by && S.players[acc.by] ? 'Locked in by ' + esc(S.players[acc.by].name) + '. ' : ''}Wait for midnight to find out if you’re right!</p></div>`;
     }
@@ -1055,7 +1083,7 @@
         break;
       case 'nocount': S.countdown = null; S.countdownOff = true; render(); break;
       case 'reveal': await patchRoom({ phase: 'reveal', reveal_step: 0 }); break;
-      case 'revstep': await patchRoom({ reveal_step: +v }); if (+v === 1 && !ytId(videos()['reveal_' + R().ending]) && session.autoRead) speak(C().reveal[R().ending].join(' ')); break;
+      case 'revstep': await patchRoom({ reveal_step: +v }); break;
       case 'readreveal': speak(C().reveal[R().ending].join(' ')); break;
       case 'again':
         if (confirm('Start a new game with the same players? (The ending will be different… or will it?)')) {

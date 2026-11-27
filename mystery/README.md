@@ -49,11 +49,16 @@ The game randomly picks one of **three different solutions** each time (like the
 The clues, the lies and who gets framed all change with it, so the same family can play it three times.
 The obvious answer is always a trap.
 
-## Filmed scenes
+## Story scenes: animated or filmed
 
-[`SCRIPTS.md`](SCRIPTS.md) (or **🎬 Filming scripts** in the app) has an opening scene and three reveal scenes to
-film at home. Upload them to YouTube as *Unlisted* and paste the links on the board under **🎬 Your filmed
-scenes**. Without videos, the board shows the story as text and can read it aloud.
+The opening and the big reveal play as **animated story cards** on the TV: original illustrated characters,
+scenery, sound effects, captions, and a different voice for each character (read by the iPad). Tap **▶ Play the
+story** to start; the small controls on the stage let you go back, pause, mute, or skip.
+Every ending has its own reveal, with flashbacks.
+
+Want to film your own instead? [`SCRIPTS.md`](SCRIPTS.md) (or **🎬 Filming scripts** in the app) has an opening scene and
+three reveal scenes. Upload them to YouTube as *Unlisted* and paste the links on the board under
+**🎬 Your filmed scenes**. Any scene with a link plays your video; the rest play as animated cards.
 ⚠️ The reveal scripts contain spoilers.
 
 ## Setup (one time)
@@ -84,6 +89,10 @@ Tip: in the iPad's Settings → Display & Brightness, set **Auto-Lock** to *Neve
 | `js/engine.js` | Rules: dealing Case Cards, replaying moves into notebooks, theories, objections, scoring |
 | `js/store.js` | Supabase + local test-mode data layer |
 | `js/app.js` | The TV board and phone screens |
+| `js/portraits.js` | The illustrated characters (SVG), with moods: happy, sad, angry, gasp, sly… |
+| `js/story.js` | The animated story player: scenery, animations, voices |
+| `js/story-cards.js` | The opening and the three reveals as story cards (**spoilers!**) |
+| `js/sfx.js` | Sound effects generated in the browser (no audio files) |
 | `supabase.sql` | Tables, plus database rules that enforce the per-round action limits |
 
 Every device replays the same list of moves to build each detective's notebook, so the database never stores
