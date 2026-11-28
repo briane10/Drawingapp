@@ -111,6 +111,28 @@
         <rect x="30" y="240" width="18" height="120" fill="#0b0b10"/><rect x="380" y="240" width="18" height="120" fill="#0b0b10"/></g>
       ${[[200, 200], [420, 140], [640, 230]].map(([x, y], i) => `<text x="${x}" y="${y}" font-size="90" fill="#e9c46a" opacity=".7">${['♪', '♫', '♬'][i]}</text>`).join('')}
       <rect x="160" y="320" width="300" height="260" fill="#0f1830" stroke="#c9a227" stroke-width="10"/>`,
+    // island:<emoji> and stadium:<emoji> draw a themed place with a big landmark in the middle
+    island: (feature, night) => `${defs}
+      <linearGradient id="isky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${night ? '#0b1440' : '#43b7e8'}"/><stop offset="1" stop-color="${night ? '#3a2a6a' : '#bde9ff'}"/></linearGradient>
+      <rect width="1600" height="900" fill="url(#isky)"/>
+      ${night ? Array.from({ length: 30 }, (_, i) => `<circle cx="${(i * 397) % 1600}" cy="${(i * 211) % 380}" r="${1 + (i % 3)}" fill="#fff" opacity=".7"/>`).join('') + '<circle cx="1320" cy="150" r="70" fill="#fff6d8"/>'
+        : '<circle cx="1320" cy="150" r="80" fill="#ffe27a"/><circle cx="1320" cy="150" r="140" fill="#ffe27a" opacity=".2"/>' + [[300, 140], [520, 90], [980, 160]].map(([x, y]) => `<g fill="#fff" opacity=".9"><ellipse cx="${x}" cy="${y}" rx="90" ry="30"/><ellipse cx="${x + 50}" cy="${y - 20}" rx="60" ry="30"/></g>`).join('')}
+      <rect y="470" width="1600" height="160" fill="${night ? '#1a3a6a' : '#1e90c8'}"/>
+      ${[500, 540, 580].map((y, i) => `<path d="M0 ${y} Q200 ${y - 12} 400 ${y} T800 ${y} T1200 ${y} T1600 ${y}" stroke="#fff" stroke-opacity=".35" stroke-width="5" fill="none"/>`).join('')}
+      <text x="800" y="560" text-anchor="middle" font-size="380">${feature || '🏝️'}</text>
+      <path d="M0 640 Q400 590 800 630 T1600 610 V900 H0 Z" fill="${night ? '#a8946a' : '#f2d98f'}"/>
+      ${[[120, 700, 1], [1480, 690, -1]].map(([x, y, d]) => `<g><path d="M${x} ${y} Q${x + 30 * d} ${y - 200} ${x + 10 * d} ${y - 380}" stroke="#7a4a2a" stroke-width="30" fill="none"/>${[-60, -20, 20, 60, 100].map((a) => `<ellipse cx="${x + 10 * d}" cy="${y - 380}" rx="150" ry="34" fill="#2f9a4a" transform="rotate(${a * d} ${x + 10 * d} ${y - 380}) translate(${90 * d} 0)"/>`).join('')}</g>`).join('')}
+      ${[[400, 760], [1150, 790]].map(([x, y]) => `<text x="${x}" y="${y}" font-size="70">🐚</text>`).join('')}`,
+    stadium: (feature) => `${defs}
+      <linearGradient id="ssky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#4a6ad0"/></linearGradient>
+      <rect width="1600" height="900" fill="url(#ssky)"/>
+      ${[200, 1400].map((x) => `<g><rect x="${x - 8}" y="40" width="16" height="260" fill="#ccc"/><rect x="${x - 70}" y="20" width="140" height="60" rx="8" fill="#eee"/>${[0, 1, 2, 3].map((i) => `<circle cx="${x - 48 + i * 32}" cy="50" r="12" fill="#fffbd0"/>`).join('')}<circle cx="${x}" cy="50" r="160" fill="#fffbd0" opacity=".12"/></g>`).join('')}
+      <path d="M0 250 L1600 250 L1600 520 L0 520 Z" fill="#2b2b38"/>
+      ${Array.from({ length: 5 }, (_, r) => Array.from({ length: 40 }, (_, c) => `<circle cx="${20 + c * 40 + (r % 2) * 20}" cy="${280 + r * 50}" r="14" fill="${['#e5484d', '#3e8ef7', '#f5c518', '#f3f3f3', '#30a46c'][(r * 7 + c * 3) % 5]}"/>`).join('')).join('')}
+      <rect y="520" width="1600" height="380" fill="#2f9a4a"/>
+      ${Array.from({ length: 8 }, (_, i) => `<rect x="${i * 200}" y="520" width="100" height="380" fill="#2a8a42"/>`).join('')}
+      <path d="M0 640 H1600 M800 520 V900" stroke="#fff" stroke-width="8" opacity=".85"/><circle cx="800" cy="760" r="110" stroke="#fff" stroke-width="8" fill="none" opacity=".85"/>
+      <text x="800" y="700" text-anchor="middle" font-size="330">${feature || '🏆'}</text>`,
     dark: () => `<rect width="1600" height="900" fill="#08060c"/>`,
     title: () => `${defs}<rect width="1600" height="900" fill="url(#night)"/>`,
   };
@@ -143,6 +165,12 @@
     return esc(text).split(/(\s+)/).map((w) => (/^\s+$/.test(w) ? w : `<span class="w" style="animation-delay:${(startDelay || 0) + (i++) * 0.07}s">${w}</span>`)).join('');
   }
 
+  // "island:🌋" → the island scene with a volcano; "islandnight:💀" → at night
+  function sceneSVG(bg) {
+    const m = String(bg || '').match(/^(island|islandnight|stadium):(.*)$/);
+    if (m) return m[1] === 'stadium' ? SCENES.stadium(m[2]) : SCENES.island(m[2], m[1] === 'islandnight');
+    return (SCENES[bg] || SCENES.dark)();
+  }
   function cardHTML(card, n, total) {
     const P = root.Portraits;
     const fx = (card.fx || []).map((f) => 'fx-' + f).join(' ');
@@ -157,7 +185,7 @@
     const sayOff = card.say && !(card.cast || []).some((c) => c.id === card.say.who);
     const props = (card.props || []).map((p) => `<div class="st-prop ${p.anim || 'pop'}" style="left:${p.x}%;top:${p.y}%;font-size:${p.s || 8}vmin;animation-delay:${p.delay || 0.4}s">${p.e}</div>`).join('');
     return `<div class="st-card ${fx}">
-      <svg class="st-bg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">${(SCENES[card.bg] || SCENES.dark)()}</svg>
+      <svg class="st-bg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">${sceneSVG(card.bg)}</svg>
       ${(card.fx || []).includes('snow') ? `<div class="snow">${Array.from({ length: 60 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${-(i * 0.37) % 8}s;animation-duration:${6 + (i % 5)}s"></i>`).join('')}</div>` : ''}
       <div class="st-cast">${cast}</div>
       <div class="st-props">${props}</div>

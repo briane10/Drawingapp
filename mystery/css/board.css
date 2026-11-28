@@ -6,13 +6,13 @@
 .bg-board { position: relative; height: min(100%, 64vw); aspect-ratio: 1; max-width: 100%; }
 .bg-board svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1em 2em #000a); }
 .bg-layer { position: absolute; inset: 0; pointer-events: none; }
-.hall rect { fill: #e8d9b5; stroke: #b8a47a; stroke-width: 3; }
+.hall rect { fill: var(--hall, #e8d9b5); stroke: var(--hallline, #b8a47a); stroke-width: 3; }
 .hall.clue rect { fill: #fff1b8; stroke: #e9c46a; stroke-width: 5; }
 .hall.mag rect { fill: #d8ecff; stroke: #3e8ef7; stroke-width: 5; }
 .hall.lights rect { fill: #3a2f4a; stroke: #a371f7; stroke-width: 5; }
 .room .rname { font: 800 30px Georgia, serif; fill: #fff; paint-order: stroke; stroke: #0008; stroke-width: 6px; }
 .room .rsub { font: 800 24px -apple-system, system-ui, sans-serif; fill: #e9c46a; paint-order: stroke; stroke: #0009; stroke-width: 5px; }
-.room .door { fill: #e8d9b5; stroke: #8a6a2a; stroke-width: 2; }
+.room .door { fill: var(--hall, #e8d9b5); stroke: #8a6a2a; stroke-width: 2; }
 .room.tower > rect:first-child { stroke: #e9c46a; }
 .glow { fill: none; stroke: var(--c); stroke-width: 10; animation: glowPulse 1s ease-in-out infinite alternate; }
 @keyframes glowPulse { from { stroke-opacity: .35; } to { stroke-opacity: 1; } }
@@ -128,3 +128,5 @@
 .tr-col h2 { color: var(--c); font-size: 1.5em; }
 .tr-p { font-size: 1.3em; font-weight: 700; margin: .3em 0; animation: popIn .4s both; }
 .teamline { border: 2px solid var(--c); border-radius: 12px; padding: 8px; }
+
+.seg.themes button { flex: 1 1 45%; }

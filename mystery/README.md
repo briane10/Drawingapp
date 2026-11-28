@@ -9,7 +9,7 @@ snowplow (and the police) arrive at midnight.
 - **The TV board:** an iPad cast to the TV shows the story, the mansion map, the suspects, objections, and the big reveal.
 - **Phones:** each detective searches rooms, questions suspects, tests theories, keeps a notebook and deduction grid, and makes the final accusation.
 
-## 🎲 New: The Board Game (easier)
+## 🎲 New: The Board Game (easier, three themes)
 
 Open [`board.html`](board.html) (or tap **New! The Board Game** on the home screen). It's a quicker, more visual way to play,
 for 2–7 players or teams, ages 8+, in 20–40 minutes:
@@ -29,6 +29,19 @@ for 2–7 players or teams, ages 8+, in 20–40 minutes:
 | 🙂 Easy | up to 3 players | tells you if it's the crime scene | shows you one mistake, keep playing | 2 |
 | 🧐 Normal | up to 2 players | tells you if it's the crime scene | you're out | 1 |
 | 😈 Hard | 1 (classic) | tells you nothing | you're out | 0 |
+
+**Three themes**, picked at random each game (never the same one twice in a row), or chosen by the host:
+
+| | Mystery | Places | Center (accuse here) |
+| --- | --- | --- | --- |
+| 🏚️ Marrowby Manor | Who did in Grandpa Ozzie? | Kitchen, Ballroom, Library, Greenhouse… | 🕰️ Clock Tower |
+| 🏝️ Treasure Island | Who stole Captain Goldbeard's treasure? | Shipwreck Cove, Volcano, Jungle, Crystal Caves… | 💀 Skull Rock |
+| 🏆 Championship Day | Who stole the championship trophy? | Locker Room, Snack Stand, Press Box, Gym… | 🏆 Trophy Case |
+
+Each theme has its own six characters, objects, special squares, opening story and reveal.
+To add a theme, add an entry to `THEMES` in `js/board-data.js` (and any new characters to `js/portraits.js`).
+
+**Teams** are picked at random when the game starts (even sizes, revealed on the TV), or the host can let players choose.
 
 It uses the same database tables, so there's no extra setup. Code: `js/board-data.js` (board layout), `js/board-engine.js` (rules),
 `js/board-app.js` (TV + phones), `css/board.css`.

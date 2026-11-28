@@ -54,7 +54,7 @@
 
   // ---------- names & colors ----------
   function actorName(a, plain) {
-    if (a === 'evidence') return (plain ? '' : '🤵 ') + 'Pembrook';
+    if (a === 'evidence') return (plain ? '' : D.T.helper.emoji + ' ') + D.T.helper.name;
     if (/^t\d$/.test(a)) { const t = BE.TEAMS[+a.slice(1) - 1]; return (plain ? '' : t.emoji + ' ') + t.name; }
     const p = S.players[a];
     return p ? (plain ? '' : p.avatar + ' ') + p.name : 'A detective';
@@ -79,7 +79,8 @@
   // ---------- game state ----------
   function G() {
     if (!S.room) return null;
-    const key = [S.room.game, S.room.seed, S.room.difficulty, (S.room.actors || []).join(','), S.moves.length].join('|');
+    D.setTheme(D.themeOf(S.room));
+    const key = [S.room.case_id, S.room.game, S.room.seed, S.room.difficulty, (S.room.actors || []).join(','), S.moves.length].join('|');
     if (S.Gkey !== key) { S.G = BE.replay(S.room, S.moves); S.Gkey = key; }
     return S.G;
   }
@@ -122,7 +123,7 @@
     S.code = code;
     const data = await store.loadAll(code);
     if (!data.room) throw new Error('No game with code ' + code);
-    if (data.room.case_id !== 'board') { location.replace('./?join=' + code); return false; }
+    if (!String(data.room.case_id || '').startsWith('board')) { location.replace('./?join=' + code); return false; }
     applyAll(data);
     S.me = session.players[code] && S.players[session.players[code]] ? session.players[code] : null;
     session.lastCode = code;
@@ -197,7 +198,7 @@
         if (e.t === 'skipturn' || e.t === 'guess' || e.t === 'skip' || e.t === 'special' || e.t === 'accuse') {
           if (g.current === mine && !g.over && e.actor !== mine) { toast('🎲 <b>Your turn!</b>', 'gold', 3500); buzz([80, 60, 80]); }
         }
-        if (e.t === 'special' && e.kind === 'lights') toast('🕯️ Lights out! Everyone stumbled into a random room.', 'bad', 4500);
+        if (e.t === 'special' && e.kind === 'lights') toast(D.T.specials.lights.emoji + ' ' + esc(D.T.specials.lights.text), 'bad', 4500);
       }
     });
   }
@@ -244,7 +245,7 @@
     const sk = storyKey();
     if (sk && S.story && S.story.key === sk && document.body.contains(S.story.el)) { announce(); return; }
     if (S.story && (!sk || S.story.key !== sk)) { S.story.ctl.destroy(); S.story = null; }
-    if (isBoard() && S.view === 'game' && S.room && S.room.phase === 'play' && document.getElementById('bg-board') && S.boardGame === S.room.game) {
+    if (isBoard() && S.view === 'game' && S.room && S.room.phase === 'play' && document.getElementById('bg-board') && S.boardGame === S.room.game + S.room.case_id) {
       announce();
       updateBoardPlay();
       return;
@@ -252,6 +253,7 @@
     renderInner();
     const slot = document.getElementById('story-slot');
     if (sk && slot && window.Story) {
+      G();
       const cards = sk === 'intro' ? D.INTRO : revealCards();
       const ctl = window.Story.mount(slot, cards, { onEnd: () => { const b = document.querySelector('.story-after .gold'); if (b) b.classList.add('glow'); } });
       S.story = { key: sk, el: slot, ctl };
@@ -273,8 +275,8 @@
     $app.innerHTML = `
       <div class="home">
         <div class="crest">🎲</div>
-        <h1 class="title">Marrowby Manor<br><span>The Board Game</span></h1>
-        <p class="tag">Roll the dice, explore the mansion, and figure out <b>who</b> did it, <b>with what</b>, and <b>where</b>.<br>2–7 players (or teams) · ages 8+ · 20–40 minutes</p>
+        <h1 class="title">Marrowby Mysteries<br><span>The Board Game</span></h1>
+        <p class="tag">Roll the dice, explore the board, and figure out <b>who</b> did it, <b>with what</b>, and <b>where</b>.<br>🏚️ Haunted mansion · 🏝️ Treasure island · 🏆 Championship stadium<br>2–7 players (or teams) · ages 8+ · 20–40 minutes</p>
         <div class="card">
           <h2>📱 Join a game</h2>
           <div class="row"><input id="code" class="code-in" maxlength="6" placeholder="CODE" autocapitalize="characters" autocomplete="off" value="${esc(params.get('join') || '')}"><button class="btn gold" data-act="join">Join</button></div>
@@ -304,7 +306,7 @@
     const blocked = started && !S.me && room.mode !== 'team';
     $app.innerHTML = `
       <div class="home">
-        <h1 class="title small"><span>Marrowby Manor</span></h1>
+        <h1 class="title small"><span>Marrowby Mysteries</span></h1>
         <div class="card">
           <h2>${S.me ? 'Your detective' : 'Join game ' + esc(S.code)}</h2>
           ${started && !S.me ? `<div class="banner">This game has already started. ${room.mode === 'team' ? 'You can still join a team!' : 'If you were already playing, tap your name below.'}</div>` : ''}
@@ -330,9 +332,9 @@
     let body = '';
     if (ph === 'lobby') body = boardLobby();
     else if (ph === 'intro') body = `<div class="intro"><div class="story-slot" id="story-slot"></div><div class="story-after"><button class="btn gold" data-act="begin">🎲 Start playing</button></div></div>`;
-    else if (ph === 'play') { $app.innerHTML = boardPlayShell(); S.boardGame = S.room.game; S.tokPos = {}; updateBoardPlay(); return; }
+    else if (ph === 'play') { G(); $app.innerHTML = boardPlayShell(); S.boardGame = S.room.game + S.room.case_id; S.tokPos = {}; updateBoardPlay(); return; }
     else body = boardReveal();
-    $app.innerHTML = `<div class="board phase-${ph}"><header class="bhead"><div class="bt">🎲 <b>Marrowby Manor</b></div><div class="bcode">Code <b>${esc(S.code)}</b>${S.online !== 'live' ? ' <span class="dot off"></span>' : ''}</div></header>${body}</div>`;
+    $app.innerHTML = `<div class="board phase-${ph}"><header class="bhead"><div class="bt">${S.room.phase === 'lobby' ? '🎲 <b>Marrowby Mysteries</b>' : D.T.emoji + ' <b>' + esc(D.T.title) + '</b>'}</div><div class="bcode">Code <b>${esc(S.code)}</b>${S.online !== 'live' ? ' <span class="dot off"></span>' : ''}</div></header>${body}</div>`;
   }
 
   function joinUrl() {
@@ -370,10 +372,12 @@
         ${room.mode === 'team' ? `<label class="lbl">How many teams?</label><div class="seg">${[2, 3].map((k) => `<button class="${room.teams === k ? 'on' : ''}" data-act="set" data-k="teams" data-v="${k}">${k} teams</button>`).join('')}</div>
           <label class="lbl">Who picks the teams?</label><div class="seg"><button class="${randomTeams(room) ? 'on' : ''}" data-act="set" data-k="ending" data-v="random">🎲 Random, even teams</button><button class="${randomTeams(room) ? '' : 'on'}" data-act="set" data-k="ending" data-v="pick">✋ Players choose</button></div>
           ${randomTeams(room) ? '' : '<button class="btn ghost small" data-act="shuffle">🔀 Shuffle teams</button>'}` : ''}
+        <label class="lbl">Theme</label>
+        <div class="seg themes">${[['random', '🎲', 'Random']].concat(D.THEME_IDS.map((id) => [id, D.THEMES[id].emoji, D.THEMES[id].name])).map(([id, em, nm]) => `<button class="${(session.themePref || 'random') === id ? 'on' : ''}" data-act="theme" data-v="${id}">${em} ${esc(nm)}</button>`).join('')}</div>
         <label class="lbl">Difficulty</label>
         <div class="seg">${['easy', 'normal', 'hard'].map((d) => `<button class="${room.difficulty === d ? 'on' : ''}" data-act="set" data-k="difficulty" data-v="${d}">${{ easy: '🙂 Easy', normal: '🧐 Normal', hard: '😈 Hard' }[d]}</button>`).join('')}</div>
-        <p class="muted small">${{ easy: 'Up to 3 players show you a card for each guess. Walking into a room tells you if it’s the crime scene. A wrong accusation just shows you one mistake. Start with 2 magnifying glasses.', normal: 'Up to 2 players show you a card for each guess. Rooms tell you if they’re the crime scene. A wrong accusation knocks you out. 1 magnifying glass.', hard: 'Classic rules: one card per guess, rooms don’t tell you anything, and a wrong accusation knocks you out.' }[room.difficulty]}</p>
-        <button class="btn gold big" data-act="start" ${ready ? '' : 'disabled'}>${ready ? '🕯️ Start the game' : room.mode === 'team' ? 'Need players on 2 teams' : 'Need at least 2 players'}</button>
+        <p class="muted small">${{ easy: 'Up to 3 players show you a card for each guess. Walking into a place tells you if it’s where it happened. A wrong accusation just shows you one mistake. 2 free hints.', normal: 'Up to 2 players show you a card for each guess. Places tell you if it happened there. A wrong accusation knocks you out. 1 free hint.', hard: 'Classic rules: one card per guess, places don’t tell you anything, and a wrong accusation knocks you out.' }[room.difficulty]}</p>
+        <button class="btn gold big" data-act="start" ${ready ? '' : 'disabled'}>${ready ? '🎲 Start the game' : room.mode === 'team' ? 'Need players on 2 teams' : 'Need at least 2 players'}</button>
       </section></div>`;
   }
 
@@ -402,13 +406,13 @@
         <rect x="${x + 8}" y="${y + 8}" width="284" height="284" rx="26" fill="url(#roomshade)"/>
         <text x="${x + 150}" y="${y + 170}" text-anchor="middle" font-size="${r.tower ? 110 : 96}" opacity=".9">${r.emoji}</text>
         <text class="rname" x="${x + 150}" y="${y + 270}" text-anchor="middle">${esc(r.name)}</text>
-        ${r.tower ? `<text class="rsub" x="${x + 150}" y="${y + 60}" text-anchor="middle">⚖️ Accuse here</text>` : ''}
+        ${r.tower ? `<text class="rsub" x="${x + 150}" y="${y + 60}" text-anchor="middle">${esc(D.T.accuseHint)}</text>` : ''}
         ${doors}${passage}
       </g>`;
     }).join('');
-    return `<svg id="bg-board-svg" viewBox="0 0 1100 1100" xmlns="http://www.w3.org/2000/svg">
+    return `<svg id="bg-board-svg" style="--hall:${D.T.hall[0]};--hallline:${D.T.hall[1]}" viewBox="0 0 1100 1100" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="roomshade" cx=".5" cy=".4" r=".75"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient></defs>
-      <rect width="1100" height="1100" rx="30" fill="#2a1d14"/>
+      <rect width="1100" height="1100" rx="30" fill="${D.T.board}"/>
       ${halls}${rooms}
       <g id="hl"></g>
     </svg>`;
@@ -510,13 +514,13 @@
     const r = D.NODES[g.pos[g.current]];
     if (g.stage === 'start') return '🎲 Roll the dice!';
     if (g.stage === 'move') return '🚶 Rolled <b>' + g.roll + '</b>. Pick where to go!';
-    if (g.stage === 'guess') return '🔍 In the ' + esc(roomById(r.room).name) + '. Make a guess!';
-    if (g.stage === 'tower') return '⚖️ In the Clock Tower. Accuse… or not yet?';
+    if (g.stage === 'guess') return '🔍 At the ' + esc(roomById(r.room).name) + '. Make a guess!';
+    if (g.stage === 'tower') return '⚖️ At the ' + esc(roomById('tower').name) + '. Accuse… or not yet?';
     return '';
   }
   function lastEventCard(g) {
     const e = [...g.log].reverse().find((x) => ['guess', 'special', 'accuse', 'passage', 'hint', 'skipturn', 'search'].includes(x.t) && x.turn >= g.turn - 1);
-    if (!e) return '<div class="evt muted">Make guesses in rooms. Other players secretly show you cards that rule things out. Then go to the 🕰️ Clock Tower to accuse!</div>';
+    if (!e) return '<div class="evt muted">Make guesses at each place. Other players secretly show you cards that rule things out. Then go to the ' + roomById('tower').emoji + ' ' + esc(roomById('tower').name) + ' to accuse!</div>';
     const who = `<b style="color:${actorColor(e.actor)}">${esc(actorName(e.actor))}</b>`;
     if (e.t === 'guess') {
       const s = sus(e.who);
@@ -532,8 +536,8 @@
     }
     if (e.t === 'accuse') return `<div class="evt"><div class="bigemoji">${e.ok ? '🏆' : '❌'}</div><div>${who} accused ${esc(sus(e.who).name)}… ${e.ok ? 'and was RIGHT!' : 'and was wrong!'}</div></div>`;
     if (e.t === 'passage') return `<div class="evt"><div class="bigemoji">🔑</div><div>${who} took the secret passage!</div></div>`;
-    if (e.t === 'hint') return `<div class="evt"><div class="bigemoji">🔎</div><div>${who} used a magnifying glass for a hint.</div></div>`;
-    if (e.t === 'search') return `<div class="evt"><div class="bigemoji">🔍</div><div>${who} searched the ${esc(roomById(e.room).name)}. Pembrook whispered something…</div></div>`;
+    if (e.t === 'hint') return `<div class="evt"><div class="bigemoji">${D.T.specials.mag.emoji}</div><div>${who} used a hint.</div></div>`;
+    if (e.t === 'search') return `<div class="evt"><div class="bigemoji">🔍</div><div>${who} searched the ${esc(roomById(e.room).name)}. ${esc(D.T.helper.name)} whispered something…</div></div>`;
     return '';
   }
   function sidePanel(g, room) {
@@ -560,18 +564,7 @@
     const s = sus(g.sol.s);
     const w = wep(g.sol.w);
     const r = roomById(g.sol.r);
-    const win = g.winner;
-    return [
-      win ? { bg: 'tower', sfx: 'chime', sfxAt: 300, props: [{ e: '🏆', x: 50, y: 34, s: 22, anim: 'pop' }], title: 'Case solved!', sub: actorName(win, true) + ' cracked the case!' }
-        : { bg: 'tower', fx: ['dark'], sfx: 'sting', sfxAt: 300, title: 'Nobody solved it…', sub: 'Let’s see who really did it.' },
-      { bg: 'dining', fx: ['spot'], sfx: 'sting', sfxAt: 200, cast: [{ id: s.id, mood: 'angry', x: 50, size: 1.2, anim: 'zoom' }], title: s.full.toUpperCase(), sub: 'in the ' + r.name + ' · with the ' + w.name },
-      { bg: r.scene, fx: ['sepia'], cast: [{ id: 'ozzie', mood: 'happy', x: 26 }, { id: s.id, mood: 'sly', x: 74 }], props: [{ e: w.emoji, x: 52, y: 44, s: 11, anim: 'pop', delay: 1.4 }],
-        caption: s.full + ' asked Grandpa Ozzie to come to the ' + r.name + ' for a little chat… and then used ' + w.how + '.' },
-      { bg: r.scene, fx: ['sepia', 'dim'], props: [{ e: '⌚', x: 50, y: 30, s: 14, anim: 'fall' }],
-        caption: 'Then ' + s.name + ' slipped back to the party as if nothing had happened.' },
-      { bg: 'dining', cast: [{ id: s.id, mood: 'sad', x: 50, size: 1.05 }], caption: 'Why? Because ' + s.why + '.' },
-      { bg: 'manor', fx: ['snow', 'police'], sfx: 'siren', sfxAt: 300, title: 'Case closed', sub: win ? 'Solved by ' + actorName(win, true) + '!' : 'Better luck next time, detectives!' },
-    ];
+    return D.T.reveal(s, w, r, g.winner ? actorName(g.winner, true) : null);
   }
   function boardReveal() {
     const room = S.room;
@@ -635,19 +628,19 @@
         ${e.shows.length ? e.shows.map((x) => `<div class="shown"><span>${esc(actorName(x.by))} showed you:</span><b>${esc(BE.cardLabel(x.card))}</b><i>❌ not it</i></div>`).join('')
           : `<div class="shown none">😮 <b>Nobody could prove it wrong!</b><span>${e.own.length ? 'Some of those were your own cards, though.' : 'All three could be the answer…'}</span></div>`}</div>`;
     }
-    if (e.t === 'special' && e.kind === 'clue') return e.card ? `<div class="result"><div class="rh">🔦 Clue square</div><div class="shown"><span>Pembrook slipped you:</span><b>${esc(BE.cardLabel(e.card))}</b><i>❌ not it</i></div></div>` : '';
-    if (e.t === 'special' && e.kind === 'mag') return '<div class="result"><div class="rh">🔎 You found a magnifying glass!</div></div>';
-    if (e.t === 'hint') return `<div class="result"><div class="rh">🔎 Hint</div><div class="shown"><span>The magnifying glass shows:</span><b>${esc(BE.cardLabel(e.card))}</b><i>❌ not it</i></div></div>`;
+    if (e.t === 'special' && e.kind === 'clue') return e.card ? `<div class="result"><div class="rh">${D.T.specials.clue.emoji} ${esc(D.T.specials.clue.name)}</div><div class="shown"><span>A secret clue card:</span><b>${esc(BE.cardLabel(e.card))}</b><i>❌ not it</i></div></div>` : '';
+    if (e.t === 'special' && e.kind === 'mag') return `<div class="result"><div class="rh">${D.T.specials.mag.emoji} You got a hint token: ${esc(D.T.specials.mag.name)}!</div></div>`;
+    if (e.t === 'hint') return `<div class="result"><div class="rh">${D.T.specials.mag.emoji} Hint</div><div class="shown"><span>Your hint shows:</span><b>${esc(BE.cardLabel(e.card))}</b><i>❌ not it</i></div></div>`;
     if (e.t === 'accuse' && !e.ok) return `<div class="result bad"><div class="rh">❌ Wrong accusation</div>${e.wrong ? `<div class="shown"><span>This part was wrong:</span><b>${esc(BE.cardLabel(e.wrong))}</b></div>` : '<p>You’re out of the race, but you still show cards to others.</p>'}</div>`;
     return '';
   }
   function searchBanner(g, a) {
     const e = [...g.log].reverse().find((x) => x.t === 'search' && x.actor === a && x.turn === g.turn);
     if (!e) return '';
-    return e.crime ? `<div class="result crime"><div class="rh">😱 Pembrook whispers: “Something terrible happened in the ${esc(roomById(e.room).name)}…”</div><p><b>This is the crime scene!</b> It’s starred in your notebook.</p></div>`
-      : `<div class="result"><div class="rh">🔍 Pembrook whispers: “Nothing happened in the ${esc(roomById(e.room).name)}.”</div><p>Crossed off: ❌ ${esc(roomById(e.room).name)}</p></div>`;
+    const rn = esc(roomById(e.room).name);
+    return e.crime ? `<div class="result crime"><div class="rh">${esc(D.T.sceneYes(roomById(e.room).name))}</div><p><b>${esc(D.T.sceneYesShort)}</b> It’s starred in your notebook.</p></div>`
+      : `<div class="result"><div class="rh">${esc(D.T.sceneNo(roomById(e.room).name))}</div><p>Crossed off: ❌ ${rn}</p></div>`;
   }
-
   function phoneTurn(g, a) {
     if (g.over) return `<div class="card center"><h2>${g.winner === a ? '🏆 You solved it!' : g.winner ? esc(actorName(g.winner)) + ' solved it!' : 'Game over'}</h2><p class="muted">Look at the TV!</p></div>`;
     if (g.current !== a) {
@@ -656,11 +649,11 @@
     }
     const here = D.NODES[g.pos[a]];
     const hereRoom = here && !here.hall ? roomById(here.room) : null;
-    const magBtn = g.mags[a] > 0 ? `<button class="btn ghost wide" data-act="hint" ${S.busy ? 'disabled' : ''}>🔎 Use a magnifying glass for a hint (${g.mags[a]} left)</button>` : '';
+    const magBtn = g.mags[a] > 0 ? `<button class="btn ghost wide" data-act="hint" ${S.busy ? 'disabled' : ''}>${D.T.specials.mag.emoji} Use a hint (${g.mags[a]} left)</button>` : '';
     let body = '';
     if (g.stage === 'start') {
       body = `<h2 class="yt">🎲 Your turn!</h2>
-        <p class="muted center">You’re ${hereRoom ? 'in the ' + hereRoom.emoji + ' <b>' + esc(hereRoom.name) + '</b>' : 'in the hallway'}.</p>
+        <p class="muted center">You’re ${hereRoom ? 'at the ' + hereRoom.emoji + ' <b>' + esc(hereRoom.name) + '</b>' : 'on the path'}.</p>
         <button class="btn gold big" data-act="roll" ${S.busy ? 'disabled' : ''}>🎲 Roll the dice</button>
         ${hereRoom && hereRoom.passage ? `<button class="btn wide" data-act="passage" ${S.busy ? 'disabled' : ''}>🔑 Take the secret passage to the ${esc(roomById(hereRoom.passage).name)}</button>` : ''}
         ${hereRoom && !hereRoom.tower ? `<button class="btn wide" data-act="stay" ${S.busy ? 'disabled' : ''}>🔍 Stay here and guess again</button>` : ''}
@@ -676,14 +669,14 @@
         }).join('')}</div>`;
     } else if (g.stage === 'guess') {
       const d = S.draft.guess || (S.draft.guess = {});
-      body = `${searchBanner(g, a)}<h2 class="yt">🔍 Make a guess in the ${hereRoom.emoji} ${esc(hereRoom.name)}</h2>
+      body = `${searchBanner(g, a)}<h2 class="yt">🔍 Make a guess at the ${hereRoom.emoji} ${esc(hereRoom.name)}</h2>
         <p class="muted center small">Pick a suspect and an object. Other players will secretly show you cards that prove it wrong.</p>
         ${picker('who', D.SUSPECTS, d.who, g, a, 's')}${picker('what', D.WEAPONS, d.what, g, a, 'w')}
         <button class="btn gold big" data-act="guess" ${d.who && d.what && !S.busy ? '' : 'disabled'}>🔍 Make my guess</button>
         <button class="btn ghost wide" data-act="skip" ${S.busy ? 'disabled' : ''}>Skip guessing this turn</button>${magBtn}`;
     } else if (g.stage === 'tower') {
       const d = S.draft.acc || (S.draft.acc = {});
-      body = `<h2 class="yt">⚖️ The Clock Tower</h2>
+      body = `<h2 class="yt">⚖️ ${roomById('tower').emoji} ${esc(roomById('tower').name)}</h2>
         <p class="center">Ready to accuse? You must get <b>all three</b> right${S.room.difficulty === 'easy' ? '.' : ', or you’re out!'}</p>
         ${picker('who', D.SUSPECTS, d.who, g, a, 's', 'acc')}${picker('what', D.WEAPONS, d.what, g, a, 'w', 'acc')}${picker('where', D.CRIME_ROOMS, d.where, g, a, 'r', 'acc')}
         <button class="btn red big" data-act="accuse" ${d.who && d.what && d.where && !S.busy ? '' : 'disabled'}>⚖️ I accuse!</button>
@@ -715,16 +708,16 @@
       const k = cat + ':' + x.id;
       const kn = known[k];
       const scene = cat === 'r' && g.scene[a] === x.id;
-      const by = kn ? (kn.by === 'own' ? 'Your card' : kn.by === 'clue' ? '🔦 Clue' : kn.by === 'hint' ? '🔎 Hint' : kn.by === 'search' ? '🔍 Searched' : kn.by === 'accuse' ? '⚖️ Wrong guess' : kn.by === 'evidence' ? '🤵 Pembrook' : actorName(kn.by, true)) : '';
+      const by = kn ? (kn.by === 'own' ? 'Your card' : kn.by === 'clue' ? D.T.specials.clue.emoji + ' Clue' : kn.by === 'hint' ? D.T.specials.mag.emoji + ' Hint' : kn.by === 'search' ? '🔍 Searched' : kn.by === 'accuse' ? '⚖️ Wrong guess' : kn.by === 'evidence' ? D.T.helper.emoji + ' ' + D.T.helper.name : actorName(kn.by, true)) : '';
       const m = !kn && !scene ? (marks[k] || '') : '';
       return `<button class="nb ${kn ? (kn.by === 'own' ? 'own' : 'x') : ''} ${scene ? 'scene' : ''}" data-act="mark" data-v="${k}" ${kn || scene ? 'disabled' : ''}>
         ${cat === 's' ? face(x.id, kn ? 'neutral' : null) : `<span class="pe">${x.emoji}</span>`}<span class="pn">${esc(x.short || x.name)}</span>
-        ${kn ? `<span class="nbx">❌</span><span class="nbby">${esc(by)}</span>` : ''}${scene ? '<span class="nbby">⭐ Crime scene!</span>' : ''}${m ? `<span class="nbm">${m}</span>` : ''}</button>`;
+        ${kn ? `<span class="nbx">❌</span><span class="nbby">${esc(by)}</span>` : ''}${scene ? `<span class="nbby">${esc(D.T.sceneTag)}</span>` : ''}${m ? `<span class="nbm">${m}</span>` : ''}</button>`;
     }).join('')}</div>`;
     return `<div class="notebook">
-      <div class="nb-head"><h2>📒 My notebook</h2><div class="still">Still possible: <b>${ls.length}</b> 👤 · <b>${lw.length}</b> 🔪 · <b>${lr.length}</b> 🚪</div></div>
-      ${solved ? `<div class="solvedbox">🎯 You’ve figured it out: <b>${esc(ls[0].name)}</b>, <b>${esc(lw[0].short)}</b>, <b>${esc(lr[0].name)}</b>!<br>Get to the 🕰️ Clock Tower and accuse!</div>` : ''}
-      ${section('Who? 👤', 's', D.SUSPECTS)}${section('With what? 🔪', 'w', D.WEAPONS)}${section('Where? 🚪', 'r', D.CRIME_ROOMS)}
+      <div class="nb-head"><h2>📒 My notebook</h2><div class="still">Still possible: <b>${ls.length}</b> 👤 · <b>${lw.length}</b> ${D.T.whatIcon} · <b>${lr.length}</b> 🚪</div></div>
+      ${solved ? `<div class="solvedbox">🎯 You’ve figured it out: <b>${esc(ls[0].name)}</b>, <b>${esc(lw[0].short)}</b>, <b>${esc(lr[0].name)}</b>!<br>Get to the ${roomById('tower').emoji} ${esc(roomById('tower').name)} and accuse!</div>` : ''}
+      ${section('Who? 👤', 's', D.SUSPECTS)}${section('With what? ' + D.T.whatIcon, 'w', D.WEAPONS)}${section('Where? 🚪', 'r', D.CRIME_ROOMS)}
       <p class="muted small">❌ = definitely not it. Tap a question mark ❓ or a star ⭐ on the others to keep track of your hunches.</p></div>`;
   }
   function phoneReveal(g, a) {
@@ -735,17 +728,22 @@
   }
 
   function rulesModal() {
+    if (S.room) G();
+    const T = D.T;
+    const sp = T.specials;
+    const center = roomById('tower');
     openModal(`<h2>📜 How to play</h2>
-      <p><b>The goal:</b> be the first to figure out <b>who</b> did it, <b>with what</b>, and <b>where</b>, then accuse in the 🕰️ Clock Tower.</p>
+      <p><b>The goal:</b> be the first to figure out <b>who</b> did it, <b>with what</b>, and <b>where</b>, then accuse at the ${center.emoji} ${esc(center.name)} in the middle of the board.</p>
       <ol>
         <li>🎲 On your turn, <b>roll the dice</b> on your phone and pick where to go. Watch your token walk on the TV!</li>
-        <li>🔍 <b>In a room, make a guess:</b> a suspect + an object + that room. The other players secretly show you cards that prove it wrong. Those get crossed off in your notebook automatically.</li>
+        <li>🔍 <b>At a place, make a guess:</b> a suspect + an object + that place. The other players secretly show you cards that prove it wrong. Those get crossed off in your notebook automatically.</li>
         <li>🗂️ <b>Your own cards</b> are never the answer. They’re already crossed off.</li>
-        <li>⚖️ When only one suspect, one object, and one room are left, <b>go to the Clock Tower and accuse!</b></li>
+        <li>⚖️ When only one suspect, one object, and one place are left, <b>go to the ${esc(center.name)} and accuse!</b></li>
       </ol>
-      <p><b>Special squares:</b> 🔦 free clue card · 🔎 magnifying glass (spend it on your turn for a hint) · 🕯️ lights out (everyone ends up in a random room!)</p>
-      <p><b>Shortcuts:</b> 🔑 corner rooms have secret passages to the opposite corner. You can also stay in a room and guess again.</p>
+      <p><b>Special squares:</b> ${sp.clue.emoji} ${esc(sp.clue.name)} (free clue card) · ${sp.mag.emoji} ${esc(sp.mag.name)} (a hint to use on your turn) · ${sp.lights.emoji} ${esc(sp.lights.name)} (everyone ends up somewhere random!)</p>
+      <p><b>Shortcuts:</b> 🔑 corner places have secret passages to the opposite corner. You can also stay where you are and guess again.</p>
       <p>😮 If <b>nobody</b> can prove your guess wrong, those cards might be the answer… unless you’re holding them yourself!</p>
+      <p class="muted small">Themes: 🏚️ Marrowby Manor · 🏝️ Treasure Island · 🏆 Championship Day. Same rules, different worlds.</p>
       <div class="mbtns"><button class="btn gold" data-act="close">Got it</button></div>`);
   }
 
@@ -757,7 +755,7 @@
     for (let i = 0; i < 5; i++) {
       const code = genCode();
       try {
-        await store.createRoom({ code, host_key: session.deviceKey, case_id: 'board', mode: 'solo', difficulty: 'easy', teams: 2, ending: 'random' });
+        await store.createRoom({ code, host_key: session.deviceKey, case_id: 'board:' + (session.themePref || 'random'), mode: 'solo', difficulty: 'easy', teams: 2, ending: 'random' });
         delete session.players[code];
         saveSession();
         await openRoom(code);
@@ -881,17 +879,30 @@
         }
         const actors = actorsFor(S.room, S.players);
         if (actors.length < 2) return;
-        await patchRoom({ phase: 'intro', actors: shuffleActors(actors), seed: Math.floor(Math.random() * 2147483647), round: 0, reveal_step: 0 });
+        // pick the theme (random avoids repeating the last one)
+        let theme = session.themePref || 'random';
+        if (!D.THEMES[theme]) {
+          const opts = D.THEME_IDS.filter((t) => t !== session.lastTheme);
+          theme = opts[Math.floor(Math.random() * opts.length)];
+        }
+        session.lastTheme = theme;
+        saveSession();
+        await patchRoom({ case_id: 'board:' + theme, phase: 'intro', actors: shuffleActors(actors), seed: Math.floor(Math.random() * 2147483647), round: 0, reveal_step: 0 });
         S.seenLog = null;
         break;
       }
       case 'begin': await patchRoom({ phase: 'play' }); break;
+      case 'theme':
+        session.themePref = v;
+        saveSession();
+        await patchRoom({ case_id: 'board:' + v }).catch((err) => toast('⚠️ ' + friendlyError(err), 'bad'));
+        break;
       case 'skipturn':
         if (g && g.current && confirm('Skip ' + actorName(g.current, true) + '’s turn?')) await act({ a: 'skipturn' }, g.current);
         break;
       case 'revstep': await patchRoom({ reveal_step: +v }); break;
       case 'again':
-        if (confirm('Play again with the same players? (New mystery!)')) { await patchRoom({ phase: 'lobby', game: (S.room.game || 1) + 1, actors: [], reveal_step: 0, seed: 0 }); S.seenLog = null; }
+        if (confirm('Play again with the same players? (New mystery!)')) { await patchRoom({ phase: 'lobby', case_id: 'board:' + (session.themePref || 'random'), game: (S.room.game || 1) + 1, actors: [], reveal_step: 0, seed: 0 }); S.seenLog = null; }
         break;
 
       // phone turn actions

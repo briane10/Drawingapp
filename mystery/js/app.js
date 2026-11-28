@@ -158,7 +158,7 @@
     S.code = code;
     const data = await store.loadAll(code);
     if (!data.room) throw new Error('No game with code ' + code);
-    if (data.room.case_id === 'board') { location.replace('board.html?join=' + code); throw new Error('Opening the board game…'); }
+    if (String(data.room.case_id || '').startsWith('board')) { location.replace('board.html?join=' + code); throw new Error('Opening the board game…'); }
     applyAll(data);
     S.me = session.players[code] && S.players[session.players[code]] ? session.players[code] : null;
     session.lastCode = code;

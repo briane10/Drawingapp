@@ -25,7 +25,7 @@
   }
 
   const CAT = { s: 'Who', w: 'What', r: 'Where' };
-  const ALL_CARDS = [].concat(D.SUSPECTS.map((x) => 's:' + x.id), D.WEAPONS.map((x) => 'w:' + x.id), D.CRIME_ROOMS.map((x) => 'r:' + x.id));
+  const allCards = () => [].concat(D.SUSPECTS.map((x) => 's:' + x.id), D.WEAPONS.map((x) => 'w:' + x.id), D.CRIME_ROOMS.map((x) => 'r:' + x.id));
   function card(key) {
     const [c, id] = key.split(':');
     const list = c === 's' ? D.SUSPECTS : c === 'w' ? D.WEAPONS : D.ROOMS;
@@ -91,6 +91,7 @@
   }
 
   function replay(room, moves) {
+    D.setTheme(D.themeOf(room));
     const seed = (room.seed || 0) >>> 0;
     const actors = (room.actors || []).slice();
     const n = actors.length;
@@ -98,7 +99,7 @@
     const sol = solutionOf(seed);
     const solKeys = ['s:' + sol.s, 'w:' + sol.w, 'r:' + sol.r];
     const r = rng((seed ^ 0x51ed27) >>> 0);
-    const deck = shuffle(ALL_CARDS.filter((c) => !solKeys.includes(c)), r);
+    const deck = shuffle(allCards().filter((c) => !solKeys.includes(c)), r);
     const per = n ? Math.floor(deck.length / n) : 0;
     const hands = {};
     actors.forEach((a, i) => { hands[a] = deck.slice(i * per, (i + 1) * per); });
@@ -133,7 +134,7 @@
     }
     function learn(a, key, by) { if (!st.known[a][key]) st.known[a][key] = { by, turn: st.turn }; }
     function randomUnknown(a, rr, pool) {
-      const opts = (pool || ALL_CARDS.filter((c) => !solKeys.includes(c))).filter((c) => !st.known[a][c]);
+      const opts = (pool || allCards().filter((c) => !solKeys.includes(c))).filter((c) => !st.known[a][c]);
       return opts.length ? opts[Math.floor(rr() * opts.length)] : null;
     }
     // Walking into a room: Pembrook says whether it's the crime scene (not on Hard).
@@ -266,5 +267,5 @@
     return st;
   }
 
-  root.BoardEngine = { SHOWERS, replay, moveOptions, solutionOf, card, cardLabel, ALL_CARDS, CAT, TEAMS, COLORS, START_MAGS, rng, hash };
+  root.BoardEngine = { SHOWERS, replay, moveOptions, solutionOf, card, cardLabel, allCards, CAT, TEAMS, COLORS, START_MAGS, rng, hash };
 })(typeof window !== 'undefined' ? window : globalThis);
