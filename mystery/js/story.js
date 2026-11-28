@@ -97,6 +97,20 @@
       <rect x="1360" y="300" width="50" height="60" fill="#c9a227"/>
       <rect x="0" y="660" width="1600" height="240" fill="#3e2312"/>
       <g transform="translate(500 560) skewX(-20)"><rect width="480" height="120" fill="#f3ead8"/>${Array.from({ length: 16 }, (_, i) => `<rect x="${(i % 8) * 60}" y="${Math.floor(i / 8) * 60}" width="30" height="60" fill="#2a1d14" transform="translate(${Math.floor(i / 8) % 2 ? 30 : 0} 0)"/>`).join('')}</g>`,
+    cellar: () => `${defs}<rect width="1600" height="900" fill="#1c1a22"/>
+      ${Array.from({ length: 10 }, (_, r) => Array.from({ length: 9 }, (_, c) => `<rect x="${c * 180 + (r % 2) * 90 - 40}" y="${r * 76}" width="172" height="70" rx="8" fill="#2a2732"/>`).join('')).join('')}
+      <path d="M0 0 H1600 V120 Q800 220 0 120 Z" fill="#121018"/>
+      ${[[260, 560], [560, 600], [1040, 600], [1340, 560]].map(([x, y]) => `<g><ellipse cx="${x}" cy="${y}" rx="110" ry="150" fill="#5a3418"/><path d="M${x - 110} ${y - 60} H${x + 110} M${x - 110} ${y + 60} H${x + 110}" stroke="#2a1608" stroke-width="12"/></g>`).join('')}
+      ${[420, 800, 1180].map((x) => `<rect x="${x - 6}" y="330" width="12" height="40" fill="#f3ead8"/>${flame(x, 330, 1.2)}`).join('')}
+      <rect y="760" width="1600" height="140" fill="#100e14"/>`,
+    music: () => `${defs}<rect width="1600" height="900" fill="#1d2b4f"/>
+      ${Array.from({ length: 16 }, (_, i) => `<rect x="${i * 100}" y="0" width="40" height="620" fill="#22355e"/>`).join('')}
+      <rect y="600" width="1600" height="300" fill="#3e2312"/>
+      <g transform="translate(980 380)"><path d="M0 220 L0 60 Q0 0 80 0 L420 0 Q520 0 520 120 Q440 140 420 220 Z" fill="#0b0b10"/><rect x="0" y="200" width="420" height="40" fill="#111"/>
+        ${Array.from({ length: 14 }, (_, i) => `<rect x="${10 + i * 29}" y="206" width="26" height="30" fill="#f3f3f3"/>`).join('')}${Array.from({ length: 10 }, (_, i) => `<rect x="${30 + i * 39}" y="206" width="16" height="18" fill="#000"/>`).join('')}
+        <rect x="30" y="240" width="18" height="120" fill="#0b0b10"/><rect x="380" y="240" width="18" height="120" fill="#0b0b10"/></g>
+      ${[[200, 200], [420, 140], [640, 230]].map(([x, y], i) => `<text x="${x}" y="${y}" font-size="90" fill="#e9c46a" opacity=".7">${['♪', '♫', '♬'][i]}</text>`).join('')}
+      <rect x="160" y="320" width="300" height="260" fill="#0f1830" stroke="#c9a227" stroke-width="10"/>`,
     dark: () => `<rect width="1600" height="900" fill="#08060c"/>`,
     title: () => `${defs}<rect width="1600" height="900" fill="url(#night)"/>`,
   };

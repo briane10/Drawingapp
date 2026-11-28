@@ -427,3 +427,6 @@ table.scores td.tot { font-size: 1.4em; font-weight: 900; color: var(--gold); }
 .st-cast { z-index: 2; }
 .fx-spot::before { z-index: 3; }
 .st-caption, .st-title, .st-time, .st-offbubble, .st-progress { z-index: 4; }
+
+.gamepick { display: flex; gap: 14px; align-items: center; text-decoration: none; color: var(--ink); border-color: var(--gold2); background: linear-gradient(135deg, #3a2a14, var(--bg2)); }
+.gamepick .gp-e { font-size: 2.6rem; }

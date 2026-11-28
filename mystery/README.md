@@ -9,6 +9,34 @@ snowplow (and the police) arrive at midnight.
 - **The TV board:** an iPad cast to the TV shows the story, the mansion map, the suspects, objections, and the big reveal.
 - **Phones:** each detective searches rooms, questions suspects, tests theories, keeps a notebook and deduction grid, and makes the final accusation.
 
+## 🎲 New: The Board Game (easier)
+
+Open [`board.html`](board.html) (or tap **New! The Board Game** on the home screen). It's a quicker, more visual way to play,
+for 2–7 players or teams, ages 8+, in 20–40 minutes:
+
+- **The TV is the board:** an illustrated map of the mansion with 8 rooms around the 🕰️ Clock Tower. Tokens walk
+  square by square, suspects and objects appear in rooms, and the squares you can reach glow.
+- **Players take turns.** On your phone: 🎲 roll two dice, pick where to go, and in a room **guess** a suspect + an object +
+  that room. Other players' phones secretly show you cards that prove your guess wrong.
+- **The phone notebook is all pictures.** Everything you learn gets crossed off automatically, with who showed it to you, and it
+  counts what's "still possible". When one of each is left: go to the Clock Tower and accuse!
+- **Board squares:** 🔦 free clue card · 🔎 magnifying glass (spend it for a hint) · 🌑 lights out (everyone ends up in a random
+  room) · 🔑 secret passages between opposite corners.
+- **A new random answer every game.** The opening and the reveal play as animated story cards.
+
+| Difficulty | Cards shown per guess | Walking into a room | Wrong accusation | 🔎 at start |
+| --- | --- | --- | --- | --- |
+| 🙂 Easy | up to 3 players | tells you if it's the crime scene | shows you one mistake, keep playing | 2 |
+| 🧐 Normal | up to 2 players | tells you if it's the crime scene | you're out | 1 |
+| 😈 Hard | 1 (classic) | tells you nothing | you're out | 0 |
+
+It uses the same database tables, so there's no extra setup. Code: `js/board-data.js` (board layout), `js/board-engine.js` (rules),
+`js/board-app.js` (TV + phones), `css/board.css`.
+
+---
+
+The rest of this page is about **The Detective Case**, the original, harder game.
+
 ## Modes
 
 | | 👥 Team mode | 🕵️ Individual mode |

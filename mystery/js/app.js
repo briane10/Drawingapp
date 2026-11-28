@@ -158,6 +158,7 @@
     S.code = code;
     const data = await store.loadAll(code);
     if (!data.room) throw new Error('No game with code ' + code);
+    if (data.room.case_id === 'board') { location.replace('board.html?join=' + code); throw new Error('Opening the board game…'); }
     applyAll(data);
     S.me = session.players[code] && S.players[session.players[code]] ? session.players[code] : null;
     session.lastCode = code;
@@ -351,7 +352,7 @@
       <div class="home">
         <div class="crest">🕰️</div>
         <h1 class="title">Murder at<br><span>Marrowby Manor</span></h1>
-        <p class="tag">A murder mystery for 3–7 detectives, ages 10+.<br>One TV board. Everyone’s phone. Six suspects. One culprit.</p>
+        <p class="tag"><b>The Detective Case</b>: a challenging mystery for 3–7 detectives, ages 10+.<br>One TV board. Everyone’s phone. Six suspects. One culprit.</p>
         <div class="card">
           <h2>📱 Join a game</h2>
           <div class="row"><input id="code" class="code-in" maxlength="6" placeholder="CODE" autocapitalize="characters" autocomplete="off" value="${esc(params.get('join') || '')}"><button class="btn gold" data-act="join">Join</button></div>
@@ -365,6 +366,7 @@
             <div class="row"><input id="bcode" class="code-in" maxlength="6" placeholder="CODE" autocapitalize="characters"><button class="btn ghost" data-act="reboard">Open board</button></div>
           </details>
         </div>
+        <a class="card gamepick" href="board.html"><span class="gp-e">🎲</span><span><b>New! The Board Game</b><br><span class="muted">Easier and quicker: roll the dice, explore the mansion on the TV, and solve who, with what, and where.</span></span></a>
         ${store.kind === 'local' ? '<div class="banner warn">🧪 Test mode: no database is connected, so only tabs on this device can share a game. See <a href="setup.html">setup</a>.</div>' : ''}
         <p class="foot"><a href="scripts.html">🎬 Filming scripts</a> · <a href="#" data-act="rules">📜 How to play</a></p>
       </div>`;
