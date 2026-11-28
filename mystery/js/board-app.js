@@ -70,6 +70,9 @@
     return p ? p.avatar : '🕵️';
   }
   const roomById = (id) => D.ROOMS.find((r) => r.id === id);
+  // Team mode picks teams at random unless the host switches to "players choose".
+  // (Stored in the room's spare `ending` column, so no database change is needed.)
+  const randomTeams = (room) => !!(room && room.mode === 'team' && room.ending !== 'pick');
   const sus = (id) => D.SUSPECTS.find((x) => x.id === id);
   const wep = (id) => D.WEAPONS.find((x) => x.id === id);
 
@@ -198,6 +201,16 @@
       }
     });
   }
+  function teamReveal() {
+    sfx('sparkle');
+    const teams = BE.TEAMS.slice(0, S.room.teams).map((t) => ({ t, ps: Object.values(S.players).filter((p) => (p.team || 1) === t.n) })).filter((x) => x.ps.length);
+    const el = document.createElement('div');
+    el.className = 'teamreveal';
+    el.innerHTML = '<h1>🎲 The teams are…</h1><div class="tr-cols">' + teams.map(({ t, ps }, i) => `<div class="tr-col" style="--c:${t.color};animation-delay:${0.4 + i * 0.5}s"><h2>${t.emoji} ${t.name}</h2>${ps.map((p, k) => `<div class="tr-p" style="animation-delay:${0.8 + i * 0.5 + k * 0.25}s">${p.avatar} ${esc(p.name)}</div>`).join('')}</div>`).join('') + '</div>';
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add('out'), 5200);
+    setTimeout(() => el.remove(), 5800);
+  }
   function accuseFlash(e) {
     const el = document.createElement('div');
     el.className = 'objection ' + (e.ok ? 'ok' : 'bad');
@@ -287,7 +300,7 @@
     const draft = S.draft.profile || { name: p.name || session.name || '', avatar: p.avatar || session.avatar || AVATARS[Math.floor(Math.random() * 8)], team: p.team || null };
     S.draft.profile = draft;
     const others = Object.values(S.players).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
-    const teamPick = room && room.mode === 'team';
+    const teamPick = room && room.mode === 'team' && !randomTeams(room);
     const blocked = started && !S.me && room.mode !== 'team';
     $app.innerHTML = `
       <div class="home">
@@ -339,11 +352,13 @@
     const room = S.room;
     const ps = Object.values(S.players).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
     const u = joinUrl();
-    const pchip = (p) => `<button class="pchip" data-act="${room.mode === 'team' ? 'cycleteam' : 'kickask'}" data-v="${p.id}">${p.avatar} ${esc(p.name)}</button>`;
-    const roster = room.mode === 'team'
+    const pchip = (p) => `<button class="pchip" data-act="${room.mode === 'team' && !randomTeams(room) ? 'cycleteam' : 'kickask'}" data-v="${p.id}">${p.avatar} ${esc(p.name)}</button>`;
+    const roster = randomTeams(room)
+      ? `<div class="plist">${ps.map(pchip).join('') || '<p class="muted">Waiting for players…</p>'}</div><p class="muted small">🎲 Teams get picked at random when you start, with even sizes.</p>`
+      : room.mode === 'team'
       ? `<div class="teams">${BE.TEAMS.slice(0, room.teams).map((t) => `<div class="teamcol" style="--c:${t.color}"><h3>${t.emoji} ${t.name}</h3>${ps.filter((p) => (p.team || 1) === t.n).map(pchip).join('') || '<p class="muted">Nobody yet</p>'}</div>`).join('')}</div><p class="muted small">Tap a name to move them to another team.</p>`
       : `<div class="plist">${ps.map(pchip).join('') || '<p class="muted">Waiting for players…</p>'}</div>`;
-    const ready = actorsFor(room, S.players).length >= 2;
+    const ready = randomTeams(room) ? ps.length >= 2 : actorsFor(room, S.players).length >= 2;
     return `<div class="lobby">
       <section class="panel joinbox"><h2>Join on your phone</h2><div class="bigcode">${esc(S.code)}</div>
         <p>Open <b class="url">${esc(u.host + u.pathname)}</b><br>and type the code.</p>
@@ -352,7 +367,9 @@
       <section class="panel settings"><h2>Game settings</h2>
         <label class="lbl">Mode</label>
         <div class="seg"><button class="${room.mode === 'team' ? 'on' : ''}" data-act="set" data-k="mode" data-v="team">👥 Teams</button><button class="${room.mode === 'solo' ? 'on' : ''}" data-act="set" data-k="mode" data-v="solo">🕵️ Everyone for themselves</button></div>
-        ${room.mode === 'team' ? `<label class="lbl">Teams</label><div class="seg">${[2, 3].map((k) => `<button class="${room.teams === k ? 'on' : ''}" data-act="set" data-k="teams" data-v="${k}">${k} teams</button>`).join('')}</div><button class="btn ghost small" data-act="shuffle">🔀 Shuffle teams</button>` : ''}
+        ${room.mode === 'team' ? `<label class="lbl">How many teams?</label><div class="seg">${[2, 3].map((k) => `<button class="${room.teams === k ? 'on' : ''}" data-act="set" data-k="teams" data-v="${k}">${k} teams</button>`).join('')}</div>
+          <label class="lbl">Who picks the teams?</label><div class="seg"><button class="${randomTeams(room) ? 'on' : ''}" data-act="set" data-k="ending" data-v="random">🎲 Random, even teams</button><button class="${randomTeams(room) ? '' : 'on'}" data-act="set" data-k="ending" data-v="pick">✋ Players choose</button></div>
+          ${randomTeams(room) ? '' : '<button class="btn ghost small" data-act="shuffle">🔀 Shuffle teams</button>'}` : ''}
         <label class="lbl">Difficulty</label>
         <div class="seg">${['easy', 'normal', 'hard'].map((d) => `<button class="${room.difficulty === d ? 'on' : ''}" data-act="set" data-k="difficulty" data-v="${d}">${{ easy: '🙂 Easy', normal: '🧐 Normal', hard: '😈 Hard' }[d]}</button>`).join('')}</div>
         <p class="muted small">${{ easy: 'Up to 3 players show you a card for each guess. Walking into a room tells you if it’s the crime scene. A wrong accusation just shows you one mistake. Start with 2 magnifying glasses.', normal: 'Up to 2 players show you a card for each guess. Rooms tell you if they’re the crime scene. A wrong accusation knocks you out. 1 magnifying glass.', hard: 'Classic rules: one card per guess, rooms don’t tell you anything, and a wrong accusation knocks you out.' }[room.difficulty]}</p>
@@ -586,9 +603,16 @@
     const g = G();
     const color = a && inGame(a) ? actorColor(a) : '#c9a227';
     let main = '';
+    if (room.phase === 'intro' && room.mode === 'team' && inGame(a) && S.teamToast !== room.game) {
+      S.teamToast = room.game;
+      const t = BE.TEAMS[(p.team || 1) - 1];
+      const mates = Object.values(S.players).filter((x) => x.id !== p.id && (x.team || 1) === (p.team || 1)).map((x) => esc(x.name));
+      setTimeout(() => toast(`${t.emoji} You’re on <b>${t.name}</b>${mates.length ? ' with ' + mates.join(' & ') : ''}!`, 'gold', 6000), 300);
+      buzz([60, 40, 60]);
+    }
     if (room.phase === 'lobby') main = phoneLobby();
     else if (!inGame(a)) main = '<div class="card center"><h2>You’re watching this one</h2><p class="muted">This game started before you joined. Watch the TV, and you can play next game!</p></div>';
-    else if (room.phase === 'intro') main = `<div class="card center watch"><div class="tvicon">📺</div><h2>Watch the TV!</h2><p class="muted">These are your cards. They are definitely <b>NOT</b> the answer. They’re crossed off in your notebook already.</p><div class="cards big">${g.hands[a].map((k) => `<span class="ccard">${esc(BE.cardLabel(k))}</span>`).join('')}</div></div>`;
+    else if (room.phase === 'intro') main = `<div class="card center watch"><div class="tvicon">📺</div><h2>Watch the TV!</h2>${room.mode === 'team' ? `<p class="teamline" style="--c:${actorColor(a)}">You’re on <b>${esc(actorName(a))}</b></p>` : ''}<p class="muted">These are your cards. They are definitely <b>NOT</b> the answer. They’re crossed off in your notebook already.</p><div class="cards big">${g.hands[a].map((k) => `<span class="ccard">${esc(BE.cardLabel(k))}</span>`).join('')}</div></div>`;
     else if (room.phase === 'reveal') main = phoneReveal(g, a);
     else main = phoneTurn(g, a) + notebook(g, a);
     const mine = room.phase === 'play' && g && g.current === a;
@@ -599,7 +623,7 @@
     const room = S.room;
     const p = me();
     return `<div class="card center"><div class="tvicon">🎲</div><h2>You’re in, ${esc(p.name)}!</h2><p class="muted">Waiting for the host to start. Keep this screen open.</p>
-      ${room.mode === 'team' ? `<label class="lbl">Your team</label><div class="seg">${BE.TEAMS.slice(0, room.teams).map((t) => `<button class="${(p.team || 1) === t.n ? 'on' : ''}" style="--c:${t.color}" data-act="jointeam" data-v="${t.n}">${t.emoji} ${t.name.replace('Team ', '')}</button>`).join('')}</div>` : ''}
+      ${randomTeams(room) ? '<p class="muted">🎲 Teams will be picked at random when the game starts.</p>' : room.mode === 'team' ? `<label class="lbl">Your team</label><div class="seg">${BE.TEAMS.slice(0, room.teams).map((t) => `<button class="${(p.team || 1) === t.n ? 'on' : ''}" style="--c:${t.color}" data-act="jointeam" data-v="${t.n}">${t.emoji} ${t.name.replace('Team ', '')}</button>`).join('')}</div>` : ''}
       <button class="btn ghost small" data-act="rules">📜 How to play</button></div>`;
   }
 
@@ -849,6 +873,12 @@
         break;
       }
       case 'start': {
+        if (randomTeams(S.room)) {
+          const ps = Object.values(S.players).sort(() => Math.random() - 0.5);
+          await Promise.all(ps.map((p, i) => store.updatePlayer(p.id, { team: (i % S.room.teams) + 1 })));
+          ps.forEach((p, i) => { p.team = (i % S.room.teams) + 1; });
+          teamReveal();
+        }
         const actors = actorsFor(S.room, S.players);
         if (actors.length < 2) return;
         await patchRoom({ phase: 'intro', actors: shuffleActors(actors), seed: Math.floor(Math.random() * 2147483647), round: 0, reveal_step: 0 });

@@ -118,3 +118,13 @@
 .nb .nbm { position: absolute; top: 4px; left: 6px; font-size: 1rem; }
 .nb:disabled { cursor: default; }
 .solvedbox { background: linear-gradient(180deg, #f1d385, var(--gold2)); color: #2a1a00; border-radius: 14px; padding: 12px; margin: 10px 0; text-align: center; animation: popIn .5s; }
+
+/* team reveal on the TV */
+.teamreveal { position: fixed; inset: 0; z-index: 90; background: radial-gradient(circle at 50% 30%, #3a2352, #0b0710 75%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5vw; animation: stFade .4s; transition: opacity .6s; font-size: clamp(14px, 1.6vw, 34px); }
+.teamreveal.out { opacity: 0; }
+.teamreveal h1 { font-size: 3.2em; color: var(--gold); animation: titleIn 1s both; }
+.tr-cols { display: flex; gap: 2vw; flex-wrap: wrap; justify-content: center; }
+.tr-col { min-width: 12em; background: var(--bg2); border-top: .4em solid var(--c); border-radius: 1em; padding: 1em 1.4em; animation: popIn .5s both; }
+.tr-col h2 { color: var(--c); font-size: 1.5em; }
+.tr-p { font-size: 1.3em; font-weight: 700; margin: .3em 0; animation: popIn .4s both; }
+.teamline { border: 2px solid var(--c); border-radius: 12px; padding: 8px; }
